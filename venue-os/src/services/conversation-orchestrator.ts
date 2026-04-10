@@ -15,6 +15,12 @@ import {
   evaluateResponsePolicy,
 } from "@/src/services/response-policy";
 import {
+  getResolvedOutboundModeForTenant,
+} from "@/src/services/outbound-settings";
+import {
+  dispatchOutboundTransport,
+} from "@/src/services/outbound-transport";
+import {
   classifyCandidateResponseForSafeSend,
 } from "@/src/services/safe-send-classifier";
 import type {
@@ -73,6 +79,8 @@ function buildConversationOrchestratorDependencies(
     insertAuditLog,
     classifyCandidateResponseForSafeSend,
     evaluateResponsePolicy,
+    resolveOutboundMode: getResolvedOutboundModeForTenant,
+    dispatchOutboundTransport,
     now: () => new Date(),
     ...overrides,
   };

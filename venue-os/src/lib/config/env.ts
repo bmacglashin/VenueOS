@@ -2,6 +2,8 @@ import "server-only";
 
 import { z } from "zod";
 
+import { OUTBOUND_MODES } from "@/src/lib/config/outbound";
+
 const envSchema = z
   .object({
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1),
@@ -13,6 +15,7 @@ const envSchema = z
     GHL_API_KEY: z.string().min(1),
     GHL_LOCATION_ID: z.string().min(1),
     GHL_BASE_URL: z.string().url(),
+    OUTBOUND_MODE: z.enum(OUTBOUND_MODES).default("review_only"),
   })
   .strict();
 
@@ -26,6 +29,7 @@ export const env = envSchema.parse({
   GHL_API_KEY: process.env.GHL_API_KEY,
   GHL_LOCATION_ID: process.env.GHL_LOCATION_ID,
   GHL_BASE_URL: process.env.GHL_BASE_URL,
+  OUTBOUND_MODE: process.env.OUTBOUND_MODE,
 });
 
 export type Env = typeof env;

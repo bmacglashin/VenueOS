@@ -6,6 +6,7 @@ interface DraftReviewPanelProps {
   latestAiDraftMessage: Message | null;
   draftRouteCategory: string | null;
   draftPolicyDecision: string | null;
+  draftOutboundAction: string | null;
   draftPolicyReasonCodes: readonly string[];
   draftRequiresHumanReview: boolean;
 }
@@ -30,10 +31,28 @@ function formatPolicyReasonCodes(value: readonly string[]): string {
   return value.map((reason) => reason.replaceAll("_", " ")).join(", ");
 }
 
+function formatOutboundActionLabel(value: string | null): string {
+  if (value == null) {
+    return "Action pending";
+  }
+
+  switch (value) {
+    case "proceed":
+      return "Proceed";
+    case "queue":
+      return "Queue";
+    case "block":
+      return "Block";
+    default:
+      return value.replaceAll("_", " ");
+  }
+}
+
 export function DraftReviewPanel({
   latestAiDraftMessage,
   draftRouteCategory,
   draftPolicyDecision,
+  draftOutboundAction,
   draftPolicyReasonCodes,
   draftRequiresHumanReview,
 }: DraftReviewPanelProps) {
@@ -42,7 +61,7 @@ export function DraftReviewPanel({
       <div className="space-y-1">
         <h2 className="text-sm font-semibold text-zinc-100">AI draft panel</h2>
         <p className="text-sm text-zinc-400">
-          Review-only surface. Editing the override text does not persist or
+          Operator review surface. Editing the override text does not persist or
           send yet.
         </p>
       </div>
@@ -64,6 +83,17 @@ export function DraftReviewPanel({
             }`}
           >
             {formatPolicyDecisionLabel(draftPolicyDecision)}
+          </span>
+          <span
+            className={`rounded-full border px-2 py-1 ${
+              draftOutboundAction === "block"
+                ? "border-rose-500/60 text-rose-200"
+                : draftOutboundAction === "queue"
+                  ? "border-amber-500/60 text-amber-200"
+                  : "border-sky-500/50 text-sky-200"
+            }`}
+          >
+            {formatOutboundActionLabel(draftOutboundAction)}
           </span>
         </div>
         {draftPolicyReasonCodes.length > 0 ? (

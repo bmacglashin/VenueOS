@@ -37,8 +37,9 @@ export default async function MissionControlPage({
     return (
       <MissionControlShell
         title="Mission Control v0"
-        description="Internal review surface for QA and demos. This route reads real conversation, draft, and audit data without exposing any outbound send controls."
+        description="Internal review surface for QA, launch readiness, and demos. This route reads real conversation, draft, and audit data while showing the resolved outbound mode for the selected tenant."
         selectedTenantName={data.selectedTenant?.name}
+        resolvedOutboundMode={data.resolvedOutboundMode}
       >
         <div className="grid gap-4 lg:grid-cols-3">
           <section className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
@@ -81,7 +82,7 @@ export default async function MissionControlPage({
               </h2>
               <ul className="mt-3 space-y-2 text-sm leading-6 text-zinc-400">
                 <li>Use this route to review conversation state and AI drafts.</li>
-                <li>Outbound sending is intentionally withheld for Shift 10.</li>
+                <li>Use the outbound mode banner above to confirm the current kill-switch state.</li>
                 <li>
                   Open the sandbox to exercise the orchestration path without a
                   live GHL send.
