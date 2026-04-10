@@ -133,6 +133,26 @@ export async function listConversations(
   return result.data;
 }
 
+export async function getConversationById(
+  conversationId: string
+): Promise<Conversation | null> {
+  const supabase = createSupabaseAdminClient();
+
+  const result = await supabase
+    .from("conversations")
+    .select("*")
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  if (result.error != null) {
+    throw new Error(
+      `Failed to fetch conversation ${conversationId}: ${result.error.message}`
+    );
+  }
+
+  return result.data;
+}
+
 export async function getConversationWithMessages(
   conversationId: string
 ): Promise<ConversationWithMessages | null> {
