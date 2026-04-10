@@ -59,7 +59,7 @@ Venue OS is a multi-tenant operations platform designed for venue-first workflow
   - **Scope:** App Router page/component scaffolding, status views, thin integration points.
   - **Target end state:** Operators can access an initial control panel with core visibility.
 
-- [ ] **Shift 11 - tenant seeder**
+- [x] **Shift 11 - tenant seeder**
   - **Goal:** Add deterministic tenant bootstrap tooling.
   - **Scope:** Seed scripts/data patterns for venue and future med-spa tenants.
   - **Target end state:** New tenants can be initialized consistently for development/testing.

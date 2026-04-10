@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:tenant": "node --experimental-strip-types scripts/seed-tenant.ts"
   },
   "dependencies": {
     "next": "16.2.2",
