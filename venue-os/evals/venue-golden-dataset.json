@@ -1,0 +1,172 @@
+{
+  "datasetVersion": "shift-12",
+  "description": "Golden QA scenarios for Venue OS routing and response-shape regression checks.",
+  "knowledgeSource": "src/data/veritas-knowledge.md",
+  "cases": [
+    {
+      "id": "vh-001-dog-policy",
+      "tenantSlug": "veritas",
+      "input": "Are dogs allowed in your tasting room or on the patio?",
+      "expectedRoute": "general_hospitality",
+      "expectedAnswerShape": {
+        "style": "policy_clarification",
+        "mustAcknowledgeUnknowns": true,
+        "mustOfferNextStep": "contact_or_human_follow_up",
+        "mustAvoidFabricatedDetails": true
+      },
+      "requiresHumanReview": true,
+      "notes": "Dog policy is not explicitly stated in the current knowledge file, so escalate instead of guessing."
+    },
+    {
+      "id": "vh-002-tasting-room-hours",
+      "tenantSlug": "veritas",
+      "input": "What are your tasting room hours this week?",
+      "expectedRoute": "general_hospitality",
+      "expectedAnswerShape": {
+        "style": "hours_response",
+        "mustReferenceKnowledge": "opening_hours",
+        "mustIncludeKnownHoursWindow": "11:00 a.m. to 5:00 p.m.",
+        "mustAvoidUnverifiedHolidayClaims": true
+      },
+      "requiresHumanReview": false,
+      "notes": "Knowledge includes opening hours listed as Monday through Sunday, 11:00 a.m. - 5:00 p.m."
+    },
+    {
+      "id": "vh-003-wedding-200-cost",
+      "tenantSlug": "veritas",
+      "input": "How much would a 200-person wedding cost at your venue?",
+      "expectedRoute": "high_ticket_event",
+      "expectedAnswerShape": {
+        "style": "high_ticket_pricing_intake",
+        "mustDeclineExactQuoteWithoutData": true,
+        "mustCollectPlanningDetails": ["date_or_season", "guest_count", "service_level"],
+        "mustOfferSalesFollowUp": true
+      },
+      "requiresHumanReview": true,
+      "notes": "No explicit pricing table appears in the current venue knowledge."
+    },
+    {
+      "id": "vh-004-guest-capacity-wedding",
+      "tenantSlug": "veritas",
+      "input": "What is your maximum guest capacity for weddings?",
+      "expectedRoute": "high_ticket_event",
+      "expectedAnswerShape": {
+        "style": "capacity_or_escalation",
+        "mustAcknowledgeUnknowns": true,
+        "mustOfferVenueTeamConfirmation": true,
+        "mustAvoidInventedCapacityNumber": true
+      },
+      "requiresHumanReview": true,
+      "notes": "Capacity limits are not explicitly present in the provided knowledge file."
+    },
+    {
+      "id": "vh-005-site-tour-booking",
+      "tenantSlug": "veritas",
+      "input": "Can I book a site tour for a potential wedding next month?",
+      "expectedRoute": "booking_request",
+      "expectedAnswerShape": {
+        "style": "booking_intent_capture",
+        "mustConfirmIntent": true,
+        "mustRequestSchedulingDetails": ["preferred_dates", "contact_info"],
+        "mustProvideBookingPath": "weddings_or_contact_page"
+      },
+      "requiresHumanReview": false,
+      "notes": "Direct booking intent should route to booking_request even when final confirmation requires staff."
+    },
+    {
+      "id": "vh-006-availability-next-october",
+      "tenantSlug": "veritas",
+      "input": "Do you have wedding availability next October?",
+      "expectedRoute": "booking_request",
+      "expectedAnswerShape": {
+        "style": "availability_intake",
+        "mustAvoidGuaranteeingAvailability": true,
+        "mustRequestSpecificDateOptions": true,
+        "mustOfferHumanSchedulingFollowUp": true
+      },
+      "requiresHumanReview": true,
+      "notes": "Availability changes frequently and is not captured as static knowledge."
+    },
+    {
+      "id": "vh-007-unknown-policy-fireworks",
+      "tenantSlug": "veritas",
+      "input": "Can we set off fireworks at the end of our reception?",
+      "expectedRoute": "unknown_needs_review",
+      "expectedAnswerShape": {
+        "style": "safety_policy_escalation",
+        "mustStateHumanReview": true,
+        "mustAvoidPolicyGuessing": true,
+        "mustUseHoldingTone": true
+      },
+      "requiresHumanReview": true,
+      "notes": "Risky policy request with no explicit grounding in current knowledge."
+    },
+    {
+      "id": "vh-008-corporate-buyout-high-ticket",
+      "tenantSlug": "veritas",
+      "input": "We need a full-venue corporate buyout for 250 guests with premium catering. What package options do you have?",
+      "expectedRoute": "high_ticket_event",
+      "expectedAnswerShape": {
+        "style": "enterprise_event_intake",
+        "mustIdentifyAsHighTicket": true,
+        "mustCollectCommercialRequirements": ["headcount", "budget", "date", "program_needs"],
+        "mustOfferSalesConsultation": true
+      },
+      "requiresHumanReview": true,
+      "notes": "High-budget private event should be triaged for human sales coordination."
+    },
+    {
+      "id": "vh-009-menu-and-wine-list",
+      "tenantSlug": "veritas",
+      "input": "Where can I find your current menu and wine list?",
+      "expectedRoute": "general_hospitality",
+      "expectedAnswerShape": {
+        "style": "resource_pointer",
+        "mustReferenceKnownResource": "tasting-room-menu",
+        "mustIncludeActionableDirection": true
+      },
+      "requiresHumanReview": false,
+      "notes": "Knowledge includes a direct 'MENU AND WINE LIST' link."
+    },
+    {
+      "id": "vh-010-weekend-table-booking",
+      "tenantSlug": "veritas",
+      "input": "I'd like to reserve a table for six this Saturday at 2 PM.",
+      "expectedRoute": "booking_request",
+      "expectedAnswerShape": {
+        "style": "reservation_capture",
+        "mustCaptureBookingDetails": ["party_size", "date_time", "name", "contact"],
+        "mustSetExpectationForConfirmation": true
+      },
+      "requiresHumanReview": false,
+      "notes": "Clear direct reservation request should route to booking_request."
+    },
+    {
+      "id": "vh-011-location-and-directions",
+      "tenantSlug": "veritas",
+      "input": "Where exactly are you located, and how far are you from Charlottesville?",
+      "expectedRoute": "general_hospitality",
+      "expectedAnswerShape": {
+        "style": "location_response",
+        "mustReferenceKnownAddress": "151 Veritas Lane, Afton, Virginia 22920",
+        "mustReferenceKnownDistanceNote": "20 minutes west of Charlottesville"
+      },
+      "requiresHumanReview": false,
+      "notes": "Both the street address and Charlottesville proximity are present in knowledge."
+    },
+    {
+      "id": "vh-012-medical-event-unsupported",
+      "tenantSlug": "veritas",
+      "input": "Can you host a same-day outpatient medical procedure pop-up next weekend?",
+      "expectedRoute": "unknown_needs_review",
+      "expectedAnswerShape": {
+        "style": "unsupported_request_escalation",
+        "mustStateOutOfScope": true,
+        "mustEscalateToHuman": true,
+        "mustAvoidImprovisingComplianceAdvice": true
+      },
+      "requiresHumanReview": true,
+      "notes": "Unsupported/ambiguous use case should be routed to unknown_needs_review for manual handling."
+    }
+  ]
+}
