@@ -12,6 +12,12 @@ export interface InsertAuditLogInput {
   status?: string;
 }
 
+export interface ListAuditLogsInput {
+  tenantId: string;
+  conversationId?: string;
+  limit?: number;
+}
+
 export async function insertAuditLog(
   input: InsertAuditLogInput
 ): Promise<AuditLog> {
@@ -32,6 +38,33 @@ export async function insertAuditLog(
     throw new Error(
       `Failed to insert audit log: ${result.error?.message ?? "no data returned"}`
     );
+  }
+
+  return result.data;
+}
+
+export async function listAuditLogs(
+  input: ListAuditLogsInput
+): Promise<AuditLog[]> {
+  const supabase = createSupabaseAdminClient();
+
+  let query = supabase
+    .from("audit_logs")
+    .select("*")
+    .eq("tenant_id", input.tenantId)
+    .order("created_at", { ascending: false })
+    .limit(input.limit ?? 20);
+
+  if (input.conversationId != null) {
+    query = query.contains("payload", {
+      conversationId: input.conversationId,
+    });
+  }
+
+  const result = await query;
+
+  if (result.error != null) {
+    throw new Error(`Failed to list audit logs: ${result.error.message}`);
   }
 
   return result.data;
