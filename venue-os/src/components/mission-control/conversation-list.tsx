@@ -33,6 +33,18 @@ function formatRouteLabel(value: string | null): string {
   return value.replaceAll("_", " ");
 }
 
+function formatPolicyDecisionLabel(value: string | null): string {
+  if (value == null) {
+    return "Policy pending";
+  }
+
+  return value.replaceAll("_", " ");
+}
+
+function formatPolicyReasonCodes(value: readonly string[]): string {
+  return value.map((reason) => reason.replaceAll("_", " ")).join(", ");
+}
+
 function shortConversationId(value: string): string {
   return value.slice(0, 8);
 }
@@ -83,7 +95,19 @@ export function ConversationList({
                       <span className="rounded-full border border-zinc-700 px-2 py-0.5 text-[11px] uppercase tracking-[0.22em] text-zinc-300">
                         {formatRouteLabel(conversation.routeCategory)}
                       </span>
-                      {conversation.requiresHumanReview ? (
+                      {conversation.policyDecision != null ? (
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-[0.22em] ${
+                            conversation.policyDecision === "block_send"
+                              ? "border-rose-500/60 text-rose-200"
+                              : conversation.policyDecision === "needs_review"
+                                ? "border-amber-500/60 text-amber-200"
+                                : "border-emerald-500/40 text-emerald-200"
+                          }`}
+                        >
+                          {formatPolicyDecisionLabel(conversation.policyDecision)}
+                        </span>
+                      ) : conversation.requiresHumanReview ? (
                         <span className="rounded-full border border-amber-500/60 px-2 py-0.5 text-[11px] uppercase tracking-[0.22em] text-amber-200">
                           Human review
                         </span>
@@ -97,6 +121,12 @@ export function ConversationList({
                     {conversation.lastPreview ??
                       "No messages recorded for this conversation yet."}
                   </p>
+                  {conversation.policyReasonCodes.length > 0 ? (
+                    <p className="mt-2 text-xs leading-5 text-zinc-500">
+                      Policy reasons:{" "}
+                      {formatPolicyReasonCodes(conversation.policyReasonCodes)}
+                    </p>
+                  ) : null}
                 </Link>
               </li>
             );

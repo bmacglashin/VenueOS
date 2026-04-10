@@ -38,6 +38,8 @@ export interface MissionControlConversationSummary {
   lastActivityAt: string;
   lastPreview: string | null;
   routeCategory: string | null;
+  policyDecision: string | null;
+  policyReasonCodes: string[];
   requiresHumanReview: boolean;
 }
 
@@ -63,6 +65,8 @@ export interface MissionControlConversationDetail {
   latestInboundMessage: Message | null;
   latestAiDraftMessage: Message | null;
   draftRouteCategory: string | null;
+  draftPolicyDecision: string | null;
+  draftPolicyReasonCodes: string[];
   draftRequiresHumanReview: boolean;
   auditLogs: AuditLog[];
 }
@@ -113,6 +117,10 @@ function readBoolean(value: Json | null | undefined): boolean | null {
   return typeof value === "boolean" ? value : null;
 }
 
+function readArray(value: Json | null | undefined): Json[] | null {
+  return Array.isArray(value) ? value : null;
+}
+
 function isAiDraftMessage(message: Message): boolean {
   return message.source === AI_DRAFT_SOURCE || message.status === "draft";
 }
@@ -137,7 +145,53 @@ function getDraftRouteCategory(message: Message | null): string | null {
   return readString(route?.category);
 }
 
+function getDraftPolicyDecision(message: Message | null): string | null {
+  if (message?.policy_decision != null) {
+    return readString(message.policy_decision);
+  }
+
+  const metadata = readJsonObject(message?.metadata);
+  const responsePolicy = readJsonObject(metadata?.responsePolicy);
+  return readString(responsePolicy?.decision);
+}
+
+function getDraftPolicyReasonCodes(message: Message | null): string[] {
+  const storedReasons = readArray(message?.policy_reasons);
+
+  if (storedReasons != null) {
+    const codes = storedReasons.flatMap((reason) => {
+      const reasonObject = readJsonObject(reason);
+      const code = readString(reasonObject?.code);
+      return code == null ? [] : [code];
+    });
+
+    if (codes.length > 0) {
+      return codes;
+    }
+  }
+
+  const metadata = readJsonObject(message?.metadata);
+  const responsePolicy = readJsonObject(metadata?.responsePolicy);
+  const reasons = readArray(responsePolicy?.reasons) ?? [];
+
+  return reasons.flatMap((reason) => {
+    const reasonObject = readJsonObject(reason);
+    const code = readString(reasonObject?.code);
+    return code == null ? [] : [code];
+  });
+}
+
 function getDraftRequiresHumanReview(message: Message | null): boolean {
+  const policyDecision = getDraftPolicyDecision(message);
+
+  if (policyDecision === "needs_review" || policyDecision === "block_send") {
+    return true;
+  }
+
+  if (policyDecision === "safe_to_send") {
+    return false;
+  }
+
   const metadata = readJsonObject(message?.metadata);
   const route = readJsonObject(metadata?.route);
   return readBoolean(route?.requiresHumanReview) ?? false;
@@ -172,6 +226,8 @@ function buildConversationSummary(
     lastActivityAt: latestMessage?.created_at ?? conversation.updated_at,
     lastPreview: summarizePreview(latestMessage),
     routeCategory: getDraftRouteCategory(latestAiDraftMessage),
+    policyDecision: getDraftPolicyDecision(latestAiDraftMessage),
+    policyReasonCodes: getDraftPolicyReasonCodes(latestAiDraftMessage),
     requiresHumanReview: getDraftRequiresHumanReview(latestAiDraftMessage),
   };
 }
@@ -308,6 +364,8 @@ export async function getMissionControlConversationDetail(
     latestInboundMessage,
     latestAiDraftMessage,
     draftRouteCategory: getDraftRouteCategory(latestAiDraftMessage),
+    draftPolicyDecision: getDraftPolicyDecision(latestAiDraftMessage),
+    draftPolicyReasonCodes: getDraftPolicyReasonCodes(latestAiDraftMessage),
     draftRequiresHumanReview: getDraftRequiresHumanReview(latestAiDraftMessage),
     auditLogs,
   };
