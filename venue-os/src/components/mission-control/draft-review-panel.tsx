@@ -5,6 +5,8 @@ type Message = Database["public"]["Tables"]["messages"]["Row"];
 interface DraftReviewPanelProps {
   latestAiDraftMessage: Message | null;
   draftRouteCategory: string | null;
+  draftPolicyDecision: string | null;
+  draftPolicyReasonCodes: readonly string[];
   draftRequiresHumanReview: boolean;
 }
 
@@ -16,9 +18,23 @@ function formatRouteLabel(value: string | null): string {
   return value.replaceAll("_", " ");
 }
 
+function formatPolicyDecisionLabel(value: string | null): string {
+  if (value == null) {
+    return "Policy pending";
+  }
+
+  return value.replaceAll("_", " ");
+}
+
+function formatPolicyReasonCodes(value: readonly string[]): string {
+  return value.map((reason) => reason.replaceAll("_", " ")).join(", ");
+}
+
 export function DraftReviewPanel({
   latestAiDraftMessage,
   draftRouteCategory,
+  draftPolicyDecision,
+  draftPolicyReasonCodes,
   draftRequiresHumanReview,
 }: DraftReviewPanelProps) {
   return (
@@ -40,14 +56,21 @@ export function DraftReviewPanel({
           </span>
           <span
             className={`rounded-full border px-2 py-1 ${
-              draftRequiresHumanReview
+              draftPolicyDecision === "block_send"
+                ? "border-rose-500/60 text-rose-200"
+                : draftPolicyDecision === "needs_review" || draftRequiresHumanReview
                 ? "border-amber-500/60 text-amber-200"
                 : "border-emerald-500/40 text-emerald-200"
             }`}
           >
-            {draftRequiresHumanReview ? "human review" : "auto draft"}
+            {formatPolicyDecisionLabel(draftPolicyDecision)}
           </span>
         </div>
+        {draftPolicyReasonCodes.length > 0 ? (
+          <p className="text-xs leading-6 text-zinc-400">
+            Reasons: {formatPolicyReasonCodes(draftPolicyReasonCodes)}
+          </p>
+        ) : null}
         <pre className="min-h-32 whitespace-pre-wrap rounded-md border border-zinc-800 bg-zinc-950/80 p-3 text-sm leading-6 text-zinc-100">
           {latestAiDraftMessage?.content ??
             "No AI draft is stored for this conversation yet."}

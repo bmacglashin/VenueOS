@@ -84,6 +84,9 @@ export type Database = {
           status: string;
           raw_payload: Json;
           metadata: Json;
+          policy_decision: string | null;
+          policy_reasons: Json;
+          policy_evaluated_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -98,6 +101,9 @@ export type Database = {
           status?: string;
           raw_payload?: Json;
           metadata?: Json;
+          policy_decision?: string | null;
+          policy_reasons?: Json;
+          policy_evaluated_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -112,6 +118,9 @@ export type Database = {
           status?: string;
           raw_payload?: Json;
           metadata?: Json;
+          policy_decision?: string | null;
+          policy_reasons?: Json;
+          policy_evaluated_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

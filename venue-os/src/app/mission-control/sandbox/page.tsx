@@ -100,6 +100,10 @@ export default async function MissionControlSandboxPage({
                 <DraftReviewPanel
                   latestAiDraftMessage={data.selectedConversation.latestAiDraftMessage}
                   draftRouteCategory={data.selectedConversation.draftRouteCategory}
+                  draftPolicyDecision={data.selectedConversation.draftPolicyDecision}
+                  draftPolicyReasonCodes={
+                    data.selectedConversation.draftPolicyReasonCodes
+                  }
                   draftRequiresHumanReview={
                     data.selectedConversation.draftRequiresHumanReview
                   }

@@ -80,6 +80,8 @@ export default async function MissionControlConversationPage({
             <DraftReviewPanel
               latestAiDraftMessage={data.latestAiDraftMessage}
               draftRouteCategory={data.draftRouteCategory}
+              draftPolicyDecision={data.draftPolicyDecision}
+              draftPolicyReasonCodes={data.draftPolicyReasonCodes}
               draftRequiresHumanReview={data.draftRequiresHumanReview}
             />
             <JsonPanel

@@ -2,6 +2,10 @@ import "server-only";
 
 import type { Database, Json } from "@/src/lib/db/supabase";
 import { createSupabaseAdminClient } from "@/src/lib/db/admin";
+import type {
+  ResponsePolicyDecision,
+  ResponsePolicyReason,
+} from "@/src/services/response-policy";
 
 type Message = Database["public"]["Tables"]["messages"]["Row"];
 
@@ -18,6 +22,13 @@ export interface InsertMessageInput {
   ghlMessageId?: string | null;
   rawPayload?: Json;
   metadata?: Json;
+  policyDecision?: ResponsePolicyDecision | null;
+  policyReasons?: ResponsePolicyReason[];
+  policyEvaluatedAt?: string | null;
+}
+
+function toJsonValue(value: unknown): Json {
+  return JSON.parse(JSON.stringify(value ?? null)) as Json;
 }
 
 export interface FetchRecentMessagesInput {
@@ -40,6 +51,9 @@ export async function insertMessage(input: InsertMessageInput): Promise<Message>
       ghl_message_id: input.ghlMessageId ?? null,
       raw_payload: input.rawPayload ?? {},
       metadata: input.metadata ?? {},
+      policy_decision: input.policyDecision ?? null,
+      policy_reasons: toJsonValue(input.policyReasons ?? []),
+      policy_evaluated_at: input.policyEvaluatedAt ?? null,
     })
     .select("*")
     .single();
