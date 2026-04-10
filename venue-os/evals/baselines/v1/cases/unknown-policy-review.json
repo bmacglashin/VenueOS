@@ -1,0 +1,33 @@
+{
+  "caseId": "unknown-policy-review",
+  "description": "Unknown or risky policies should stay in premium holding review mode.",
+  "fixtureFile": "unknown-policy-review.json",
+  "route": {
+    "classification": "unknown_needs_review",
+    "confidence": 0.88,
+    "requiresHumanReview": true,
+    "rationale": "The request touches a risky policy area that should be reviewed by staff."
+  },
+  "draft": {
+    "content": "Thank you for reaching out to Veritas Vineyard. A member of our team is reviewing this personally and will follow up shortly.",
+    "source": "venue_os_ai_draft",
+    "status": "draft"
+  },
+  "policy": {
+    "decision": "needs_review",
+    "reasons": [
+      {
+        "code": "escalation_required",
+        "detail": "The route or candidate signals escalation or uncertainty and must be reviewed before sending."
+      }
+    ],
+    "transportAllowed": false
+  },
+  "safeSend": {
+    "escalationSignal": true,
+    "pricingDiscussed": false,
+    "availabilityDiscussed": false,
+    "pricingVerification": "not_applicable",
+    "availabilityVerification": "not_applicable"
+  }
+}

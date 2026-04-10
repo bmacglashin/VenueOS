@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "low-confidence-booking-review",
+  "description": "Low-confidence booking intent should be routed for review before send.",
+  "clock": {
+    "now": "2026-04-10T16:10:00.000Z"
+  },
+  "input": {
+    "tenantId": "55555555-5555-4555-8555-555555555555",
+    "venue": {
+      "id": "66666666-6666-4666-8666-666666666666",
+      "venueName": "Veritas Vineyard"
+    },
+    "conversation": {
+      "id": "77777777-7777-4777-8777-777777777777",
+      "ghlContactId": "contact-201",
+      "ghlConversationId": "conversation-201",
+      "status": "open"
+    },
+    "inbound": {
+      "content": "Can I schedule a site tour for next month?",
+      "source": "eval_fixture",
+      "role": "user",
+      "receivedAt": "2026-04-10T16:09:00.000Z"
+    }
+  },
+  "recentMessages": [
+    {
+      "id": "88888888-8888-4888-8888-888888888888",
+      "role": "user",
+      "direction": "inbound",
+      "content": "We are planning a wedding.",
+      "source": "eval_fixture",
+      "status": "recorded",
+      "createdAt": "2026-04-10T15:58:00.000Z"
+    }
+  ],
+  "router": {
+    "classification": {
+      "category": "booking_request",
+      "confidence": 0.61,
+      "requiresHumanReview": false,
+      "rationale": "The guest is asking about a tour, but the intent is not fully specified."
+    },
+    "aiReply": "Happy to help with a site tour. Please share a couple of preferred dates along with the best email or phone number for confirmation."
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "general-hours-safe",
+  "description": "High-confidence hospitality answer should remain safe to send.",
+  "clock": {
+    "now": "2026-04-10T16:05:00.000Z"
+  },
+  "input": {
+    "tenantId": "11111111-1111-4111-8111-111111111111",
+    "venue": {
+      "id": "22222222-2222-4222-8222-222222222222",
+      "venueName": "Veritas Vineyard"
+    },
+    "conversation": {
+      "id": "33333333-3333-4333-8333-333333333333",
+      "ghlContactId": "contact-101",
+      "ghlConversationId": "conversation-101",
+      "status": "open"
+    },
+    "inbound": {
+      "content": "What time do you close today?",
+      "source": "eval_fixture",
+      "role": "user",
+      "receivedAt": "2026-04-10T16:04:00.000Z"
+    }
+  },
+  "recentMessages": [
+    {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "role": "assistant",
+      "direction": "outbound",
+      "content": "Welcome to Veritas Vineyard. Let us know how we can help.",
+      "source": "eval_fixture",
+      "status": "recorded",
+      "createdAt": "2026-04-10T15:50:00.000Z"
+    }
+  ],
+  "router": {
+    "classification": {
+      "category": "general_hospitality",
+      "confidence": 0.96,
+      "requiresHumanReview": false,
+      "rationale": "The guest is asking a standard venue-hours question."
+    },
+    "aiReply": "We are open until 5 PM today. If helpful, I can also share directions or tasting room details."
+  }
+}

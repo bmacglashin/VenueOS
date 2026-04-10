@@ -1,0 +1,33 @@
+{
+  "caseId": "low-confidence-booking-review",
+  "description": "Low-confidence booking intent should be routed for review before send.",
+  "fixtureFile": "low-confidence-booking-review.json",
+  "route": {
+    "classification": "booking_request",
+    "confidence": 0.61,
+    "requiresHumanReview": false,
+    "rationale": "The guest is asking about a tour, but the intent is not fully specified."
+  },
+  "draft": {
+    "content": "Happy to help with a site tour. Please share a couple of preferred dates along with the best email or phone number for confirmation.",
+    "source": "venue_os_ai_draft",
+    "status": "draft"
+  },
+  "policy": {
+    "decision": "needs_review",
+    "reasons": [
+      {
+        "code": "low_confidence_route",
+        "detail": "Route confidence 0.61 is below the 0.75 safe-send threshold."
+      }
+    ],
+    "transportAllowed": false
+  },
+  "safeSend": {
+    "escalationSignal": false,
+    "pricingDiscussed": false,
+    "availabilityDiscussed": false,
+    "pricingVerification": "not_applicable",
+    "availabilityVerification": "not_applicable"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "id": "unknown-policy-review",
+  "description": "Unknown or risky policies should stay in premium holding review mode.",
+  "clock": {
+    "now": "2026-04-10T16:20:00.000Z"
+  },
+  "input": {
+    "tenantId": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    "venue": {
+      "id": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      "venueName": "Veritas Vineyard"
+    },
+    "conversation": {
+      "id": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+      "ghlContactId": "contact-401",
+      "ghlConversationId": "conversation-401",
+      "status": "open"
+    },
+    "inbound": {
+      "content": "Can we set off fireworks after our reception?",
+      "source": "eval_fixture",
+      "role": "user",
+      "receivedAt": "2026-04-10T16:19:00.000Z"
+    }
+  },
+  "recentMessages": [
+    {
+      "id": "12121212-1212-4212-8212-121212121212",
+      "role": "user",
+      "direction": "inbound",
+      "content": "We are planning an evening wedding.",
+      "source": "eval_fixture",
+      "status": "recorded",
+      "createdAt": "2026-04-10T16:05:00.000Z"
+    }
+  ],
+  "router": {
+    "classification": {
+      "category": "unknown_needs_review",
+      "confidence": 0.88,
+      "requiresHumanReview": true,
+      "rationale": "The request touches a risky policy area that should be reviewed by staff."
+    },
+    "replySource": "premium_holding",
+    "aiReply": "Thank you for reaching out to Veritas Vineyard. A member of our team is reviewing this personally and will follow up shortly."
+  }
+}
