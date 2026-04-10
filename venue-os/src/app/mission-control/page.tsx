@@ -1,18 +1,25 @@
 import type { Metadata } from "next";
 
-import { ConversationList } from "@/src/components/mission-control/conversation-list";
 import { JsonPanel } from "@/src/components/mission-control/json-panel";
 import { MissionControlShell } from "@/src/components/mission-control/mission-control-shell";
-import { TenantSelectForm } from "@/src/components/mission-control/tenant-select-form";
-import { getMissionControlOverview } from "@/src/services/mission-control";
+import { ReviewQueueFilters } from "@/src/components/mission-control/review-queue-filters";
+import { ReviewQueueTable } from "@/src/components/mission-control/review-queue-table";
+import { getMissionControlReviewQueue } from "@/src/services/review-queue";
+import type {
+  ReviewQueueConfidenceBand,
+  ReviewQueueFilters as ReviewQueueFilterInput,
+} from "@/src/services/review-queue-core";
 
 export const metadata: Metadata = {
-  title: "Mission Control Queue",
+  title: "Mission Control Review Queue",
 };
 
 interface MissionControlPageProps {
   searchParams: Promise<{
     tenantId?: string | string[];
+    route?: string | string[];
+    status?: string | string[];
+    confidenceBand?: string | string[];
   }>;
 }
 
@@ -21,81 +28,120 @@ function readSearchParam(value?: string | string[]): string | undefined {
     return value[0];
   }
 
-  return value;
+  const trimmed = value?.trim();
+  return trimmed != null && trimmed.length > 0 ? trimmed : undefined;
+}
+
+function readConfidenceBand(
+  value?: string | string[]
+): ReviewQueueConfidenceBand | undefined {
+  const normalized = readSearchParam(value);
+
+  switch (normalized) {
+    case "low":
+    case "medium":
+    case "high":
+    case "unknown":
+      return normalized;
+    default:
+      return undefined;
+  }
+}
+
+function buildFilters(searchParams: Awaited<MissionControlPageProps["searchParams"]>): ReviewQueueFilterInput {
+  return {
+    tenantId: readSearchParam(searchParams.tenantId),
+    route: readSearchParam(searchParams.route),
+    status: readSearchParam(searchParams.status),
+    confidenceBand: readConfidenceBand(searchParams.confidenceBand),
+  };
 }
 
 export default async function MissionControlPage({
   searchParams,
 }: MissionControlPageProps) {
-  const tenantId = readSearchParam((await searchParams).tenantId);
+  const filters = buildFilters(await searchParams);
 
   try {
-    const data = await getMissionControlOverview({
-      tenantId,
-    });
+    const data = await getMissionControlReviewQueue(filters);
 
     return (
       <MissionControlShell
-        title="Mission Control v0"
-        description="Internal review surface for QA, launch readiness, and demos. This route reads real conversation, draft, and audit data while showing the resolved outbound mode for the selected tenant."
+        title="Mission Control review queue"
+        description="Operator queue for stored AI draft candidates that require human review before any outbound action. Filters stay on the shared backend service layer so the page only renders queue results."
         selectedTenantName={data.selectedTenant?.name}
-        resolvedOutboundMode={data.resolvedOutboundMode}
+        resolvedOutboundMode={data.selectedTenant == null ? null : data.resolvedOutboundMode}
       >
         <div className="grid gap-4 lg:grid-cols-3">
           <section className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
             <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
-              conversations
+              review items
             </p>
             <p className="mt-2 text-3xl font-semibold text-zinc-100">
-              {data.stats.conversationCount}
+              {data.items.length}
+            </p>
+            <p className="mt-2 text-sm text-zinc-500">
+              {filters.tenantId != null ||
+              filters.route != null ||
+              filters.status != null ||
+              filters.confidenceBand != null
+                ? `${data.totalCount} total queued candidates`
+                : "Current queue count"}
             </p>
           </section>
           <section className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
             <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
-              AI drafts
+              tenants represented
             </p>
             <p className="mt-2 text-3xl font-semibold text-zinc-100">
-              {data.stats.aiDraftCount}
+              {data.stats.tenantCount}
+            </p>
+            <p className="mt-2 text-sm text-zinc-500">
+              Operators can narrow the queue to a single tenant when needed.
             </p>
           </section>
           <section className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
             <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
-              human review
+              low confidence
             </p>
             <p className="mt-2 text-3xl font-semibold text-zinc-100">
-              {data.stats.humanReviewCount}
+              {data.stats.lowConfidenceCount}
+            </p>
+            <p className="mt-2 text-sm text-zinc-500">
+              Count of queued items below the safe-send review threshold.
             </p>
           </section>
         </div>
-        <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
+        <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
           <div className="space-y-6">
-            <TenantSelectForm
+            <ReviewQueueFilters
               action="/mission-control"
               tenants={data.tenants}
-              selectedTenantId={data.selectedTenant?.id}
-              buttonLabel="Load conversations"
-              emptyStateText="No tenants found in Postgres"
+              routes={data.routes}
+              statuses={data.statuses}
+              confidenceBands={data.confidenceBands}
+              selectedTenantId={filters.tenantId}
+              selectedRoute={filters.route}
+              selectedStatus={filters.status}
+              selectedConfidenceBand={filters.confidenceBand}
             />
             <section className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
               <h2 className="text-sm font-semibold text-zinc-100">
-                Internal notes
+                Operator notes
               </h2>
               <ul className="mt-3 space-y-2 text-sm leading-6 text-zinc-400">
-                <li>Use this route to review conversation state and AI drafts.</li>
-                <li>Use the outbound mode banner above to confirm the current kill-switch state.</li>
-                <li>
-                  Open the sandbox to exercise the orchestration path without a
-                  live GHL send.
-                </li>
+                <li>Every row is a stored AI draft with review status already recorded.</li>
+                <li>Classification, confidence, policy decision, and policy reasons are visible inline for fast triage.</li>
+                <li>Open the conversation detail view when you need transcript or raw payload context.</li>
               </ul>
             </section>
           </div>
-          <ConversationList
-            conversations={data.conversations}
+          <ReviewQueueTable
+            items={data.items}
             emptyMessage={
-              data.selectedTenant == null
-                ? "No tenant is available yet. The sandbox route can create an internal test tenant if you need a controlled demo path."
-                : "No conversations have been recorded for this tenant yet."
+              data.totalCount === 0
+                ? "No queued review candidates are stored yet."
+                : "No queued review candidates match the active filters."
             }
           />
         </div>
@@ -107,17 +153,61 @@ export default async function MissionControlPage({
 
     return (
       <MissionControlShell
-        title="Mission Control v0"
-        description="Internal review surface for QA and demos. This route reads real conversation, draft, and audit data without exposing any outbound send controls."
+        title="Mission Control review queue"
+        description="Operator queue for stored AI draft candidates that require human review before outbound action."
       >
-        <JsonPanel
-          title="Backend diagnostics"
-          description="Mission Control reached the configured backend, but the current environment could not load tenant data."
-          value={{
-            error: message,
-            hint: "Check Supabase schema availability for venue_tenants and related Shift 6/7 tables.",
-          }}
-        />
+        <div className="grid gap-4 lg:grid-cols-3">
+          <section className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
+            <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
+              review items
+            </p>
+            <p className="mt-2 text-3xl font-semibold text-zinc-100">0</p>
+            <p className="mt-2 text-sm text-zinc-500">
+              Queue data is unavailable until the backend schema responds.
+            </p>
+          </section>
+          <section className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
+            <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
+              tenants represented
+            </p>
+            <p className="mt-2 text-3xl font-semibold text-zinc-100">0</p>
+            <p className="mt-2 text-sm text-zinc-500">
+              Tenant counts resume automatically when the review service loads.
+            </p>
+          </section>
+          <section className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
+            <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
+              low confidence
+            </p>
+            <p className="mt-2 text-3xl font-semibold text-zinc-100">0</p>
+            <p className="mt-2 text-sm text-zinc-500">
+              Confidence breakdown is waiting on the stored review queue.
+            </p>
+          </section>
+        </div>
+        <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+          <div className="space-y-6">
+            <ReviewQueueFilters
+              action="/mission-control"
+              tenants={[]}
+              routes={[]}
+              statuses={[]}
+              confidenceBands={[]}
+            />
+            <JsonPanel
+              title="Backend diagnostics"
+              description="Mission Control reached the configured backend, but the review queue could not be loaded."
+              value={{
+                error: message,
+                hint: "Check Supabase schema availability for messages, conversations, and venue_tenants.",
+              }}
+            />
+          </div>
+          <ReviewQueueTable
+            items={[]}
+            emptyMessage="No queue rows can be rendered until the backend service returns review candidates."
+          />
+        </div>
       </MissionControlShell>
     );
   }
