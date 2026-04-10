@@ -48,6 +48,7 @@ export default async function MissionControlSandboxPage({
         selectedTenantName={
           data.selectedConversation?.tenant.name ?? data.selectedTenant?.name
         }
+        resolvedOutboundMode={data.resolvedOutboundMode}
       >
         <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
           <div className="space-y-6">
@@ -101,6 +102,7 @@ export default async function MissionControlSandboxPage({
                   latestAiDraftMessage={data.selectedConversation.latestAiDraftMessage}
                   draftRouteCategory={data.selectedConversation.draftRouteCategory}
                   draftPolicyDecision={data.selectedConversation.draftPolicyDecision}
+                  draftOutboundAction={data.selectedConversation.draftOutboundAction}
                   draftPolicyReasonCodes={
                     data.selectedConversation.draftPolicyReasonCodes
                   }

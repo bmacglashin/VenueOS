@@ -41,6 +41,23 @@ function formatPolicyDecisionLabel(value: string | null): string {
   return value.replaceAll("_", " ");
 }
 
+function formatOutboundActionLabel(value: string | null): string {
+  if (value == null) {
+    return "Action pending";
+  }
+
+  switch (value) {
+    case "proceed":
+      return "Proceed";
+    case "queue":
+      return "Queue";
+    case "block":
+      return "Block";
+    default:
+      return value;
+  }
+}
+
 function formatPolicyReasonCodes(value: readonly string[]): string {
   return value.map((reason) => reason.replaceAll("_", " ")).join(", ");
 }
@@ -95,6 +112,19 @@ export function ConversationList({
                       <span className="rounded-full border border-zinc-700 px-2 py-0.5 text-[11px] uppercase tracking-[0.22em] text-zinc-300">
                         {formatRouteLabel(conversation.routeCategory)}
                       </span>
+                      {conversation.outboundAction != null ? (
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-[0.22em] ${
+                            conversation.outboundAction === "block"
+                              ? "border-rose-500/60 text-rose-200"
+                              : conversation.outboundAction === "queue"
+                                ? "border-amber-500/60 text-amber-200"
+                                : "border-sky-500/50 text-sky-200"
+                          }`}
+                        >
+                          {formatOutboundActionLabel(conversation.outboundAction)}
+                        </span>
+                      ) : null}
                       {conversation.policyDecision != null ? (
                         <span
                           className={`rounded-full border px-2 py-0.5 text-[11px] uppercase tracking-[0.22em] ${

@@ -5,6 +5,11 @@ import {
   listAuditLogs,
   type ListAuditLogsInput,
 } from "@/src/services/audit-logs";
+import type {
+  OutboundAction,
+  ResolvedOutboundMode,
+} from "@/src/services/outbound-control";
+import { determineOutboundDelivery } from "@/src/services/outbound-control";
 import {
   type OrchestrateConversationTurnResult,
 } from "@/src/services/conversation-orchestrator";
@@ -17,6 +22,11 @@ import {
   listTenants,
 } from "@/src/services/conversations";
 import { fetchRecentMessages } from "@/src/services/messages";
+import { resolveOutboundModeForTenant } from "@/src/services/outbound-settings";
+import {
+  RESPONSE_POLICY_DECISIONS,
+  type ResponsePolicyDecision,
+} from "@/src/services/response-policy";
 
 type Tenant = Database["public"]["Tables"]["venue_tenants"]["Row"];
 type Conversation = Database["public"]["Tables"]["conversations"]["Row"];
@@ -39,6 +49,7 @@ export interface MissionControlConversationSummary {
   lastPreview: string | null;
   routeCategory: string | null;
   policyDecision: string | null;
+  outboundAction: OutboundAction | null;
   policyReasonCodes: string[];
   requiresHumanReview: boolean;
 }
@@ -52,12 +63,14 @@ export interface MissionControlSummaryStats {
 export interface MissionControlOverviewData {
   tenants: Tenant[];
   selectedTenant: Tenant | null;
+  resolvedOutboundMode: ResolvedOutboundMode;
   conversations: MissionControlConversationSummary[];
   stats: MissionControlSummaryStats;
 }
 
 export interface MissionControlConversationDetail {
   tenant: Tenant;
+  resolvedOutboundMode: ResolvedOutboundMode;
   conversations: MissionControlConversationSummary[];
   stats: MissionControlSummaryStats;
   conversation: Conversation;
@@ -66,6 +79,7 @@ export interface MissionControlConversationDetail {
   latestAiDraftMessage: Message | null;
   draftRouteCategory: string | null;
   draftPolicyDecision: string | null;
+  draftOutboundAction: OutboundAction | null;
   draftPolicyReasonCodes: string[];
   draftRequiresHumanReview: boolean;
   auditLogs: AuditLog[];
@@ -74,6 +88,7 @@ export interface MissionControlConversationDetail {
 export interface MissionControlSandboxData {
   tenants: Tenant[];
   selectedTenant: Tenant | null;
+  resolvedOutboundMode: ResolvedOutboundMode;
   conversations: MissionControlConversationSummary[];
   selectedConversation: MissionControlConversationDetail | null;
   willCreateTenantOnFirstRun: boolean;
@@ -181,7 +196,41 @@ function getDraftPolicyReasonCodes(message: Message | null): string[] {
   });
 }
 
-function getDraftRequiresHumanReview(message: Message | null): boolean {
+function isResponsePolicyDecision(
+  value: string | null
+): value is ResponsePolicyDecision {
+  return (
+    value != null &&
+    RESPONSE_POLICY_DECISIONS.some((decision) => decision === value)
+  );
+}
+
+function getDraftOutboundAction(
+  message: Message | null,
+  resolvedOutboundMode: ResolvedOutboundMode
+): OutboundAction | null {
+  const policyDecision = getDraftPolicyDecision(message);
+
+  if (!isResponsePolicyDecision(policyDecision)) {
+    return null;
+  }
+
+  return determineOutboundDelivery({
+    policyDecision,
+    resolvedMode: resolvedOutboundMode,
+  }).action;
+}
+
+function getDraftRequiresHumanReview(
+  message: Message | null,
+  resolvedOutboundMode: ResolvedOutboundMode
+): boolean {
+  const outboundAction = getDraftOutboundAction(message, resolvedOutboundMode);
+
+  if (outboundAction != null) {
+    return outboundAction === "queue";
+  }
+
   const policyDecision = getDraftPolicyDecision(message);
 
   if (policyDecision === "needs_review" || policyDecision === "block_send") {
@@ -213,7 +262,8 @@ function summarizePreview(message: Message | null): string | null {
 
 function buildConversationSummary(
   conversation: Conversation,
-  recentMessages: readonly Message[]
+  recentMessages: readonly Message[],
+  resolvedOutboundMode: ResolvedOutboundMode
 ): MissionControlConversationSummary {
   const orderedMessages = [...recentMessages].sort(byCreatedAtAscending);
   const latestMessage = orderedMessages.at(-1) ?? null;
@@ -227,17 +277,25 @@ function buildConversationSummary(
     lastPreview: summarizePreview(latestMessage),
     routeCategory: getDraftRouteCategory(latestAiDraftMessage),
     policyDecision: getDraftPolicyDecision(latestAiDraftMessage),
+    outboundAction: getDraftOutboundAction(
+      latestAiDraftMessage,
+      resolvedOutboundMode
+    ),
     policyReasonCodes: getDraftPolicyReasonCodes(latestAiDraftMessage),
-    requiresHumanReview: getDraftRequiresHumanReview(latestAiDraftMessage),
+    requiresHumanReview: getDraftRequiresHumanReview(
+      latestAiDraftMessage,
+      resolvedOutboundMode
+    ),
   };
 }
 
 async function listConversationSummariesForTenant(
-  tenantId: string,
+  tenant: Tenant,
   limit = CONVERSATION_LIST_LIMIT
 ): Promise<MissionControlConversationSummary[]> {
+  const resolvedOutboundMode = resolveOutboundModeForTenant(tenant);
   const conversations = await listConversations({
-    tenantId,
+    tenantId: tenant.id,
     limit,
   });
 
@@ -248,7 +306,8 @@ async function listConversationSummariesForTenant(
         await fetchRecentMessages({
           conversationId: conversation.id,
           limit: RECENT_MESSAGE_LIMIT,
-        })
+        }),
+        resolvedOutboundMode
       )
     )
   );
@@ -313,14 +372,16 @@ export async function getMissionControlOverview(
     limit: CONVERSATION_LIST_LIMIT,
   });
   const selectedTenant = resolveSelectedTenant(tenants, input.tenantId);
+  const resolvedOutboundMode = resolveOutboundModeForTenant(selectedTenant);
   const conversations =
     selectedTenant == null
       ? []
-      : await listConversationSummariesForTenant(selectedTenant.id);
+      : await listConversationSummariesForTenant(selectedTenant);
 
   return {
     tenants,
     selectedTenant,
+    resolvedOutboundMode,
     conversations,
     stats: buildSummaryStats(conversations),
   };
@@ -344,19 +405,21 @@ export async function getMissionControlConversationDetail(
   }
 
   const [conversations, auditLogs] = await Promise.all([
-    listConversationSummariesForTenant(tenant.id),
+    listConversationSummariesForTenant(tenant),
     listConversationAuditLogs({
       tenantId: tenant.id,
       conversationId,
       limit: AUDIT_LOG_LIMIT,
     }),
   ]);
+  const resolvedOutboundMode = resolveOutboundModeForTenant(tenant);
 
   const latestInboundMessage = getLatestInboundMessage(detail.messages);
   const latestAiDraftMessage = getLatestAiDraftMessage(detail.messages);
 
   return {
     tenant,
+    resolvedOutboundMode,
     conversations,
     stats: buildSummaryStats(conversations),
     conversation: detail.conversation,
@@ -365,8 +428,15 @@ export async function getMissionControlConversationDetail(
     latestAiDraftMessage,
     draftRouteCategory: getDraftRouteCategory(latestAiDraftMessage),
     draftPolicyDecision: getDraftPolicyDecision(latestAiDraftMessage),
+    draftOutboundAction: getDraftOutboundAction(
+      latestAiDraftMessage,
+      resolvedOutboundMode
+    ),
     draftPolicyReasonCodes: getDraftPolicyReasonCodes(latestAiDraftMessage),
-    draftRequiresHumanReview: getDraftRequiresHumanReview(latestAiDraftMessage),
+    draftRequiresHumanReview: getDraftRequiresHumanReview(
+      latestAiDraftMessage,
+      resolvedOutboundMode
+    ),
     auditLogs,
   };
 }
@@ -393,11 +463,15 @@ export async function getMissionControlSandboxData(
       ? selectedConversation.conversations
       : selectedTenant == null
         ? []
-        : await listConversationSummariesForTenant(selectedTenant.id, 15);
+        : await listConversationSummariesForTenant(selectedTenant, 15);
+  const resolvedOutboundMode =
+    selectedConversation?.resolvedOutboundMode ??
+    resolveOutboundModeForTenant(selectedTenant);
 
   return {
     tenants,
     selectedTenant,
+    resolvedOutboundMode,
     conversations,
     selectedConversation,
     willCreateTenantOnFirstRun: tenants.length === 0 && selectedTenant == null,

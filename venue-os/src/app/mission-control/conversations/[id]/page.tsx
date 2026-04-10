@@ -42,6 +42,7 @@ export default async function MissionControlConversationPage({
         title={`Conversation ${data.conversation.id.slice(0, 8)}`}
         description="Internal conversation detail view with transcript, AI draft review, manual override staging, and raw payload / log panels."
         selectedTenantName={data.tenant.name}
+        resolvedOutboundMode={data.resolvedOutboundMode}
       >
         <div className="grid gap-4 lg:grid-cols-3">
           <section className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
@@ -81,6 +82,7 @@ export default async function MissionControlConversationPage({
               latestAiDraftMessage={data.latestAiDraftMessage}
               draftRouteCategory={data.draftRouteCategory}
               draftPolicyDecision={data.draftPolicyDecision}
+              draftOutboundAction={data.draftOutboundAction}
               draftPolicyReasonCodes={data.draftPolicyReasonCodes}
               draftRequiresHumanReview={data.draftRequiresHumanReview}
             />
