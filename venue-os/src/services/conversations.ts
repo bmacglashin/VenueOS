@@ -15,6 +15,10 @@ export interface FindOrCreateTenantInput {
   ghlLocationId?: string | null;
 }
 
+export interface GetTenantByGhlLocationIdInput {
+  ghlLocationId: string;
+}
+
 export interface FindOrCreateConversationInput {
   tenantId: string;
   ghlContactId?: string | null;
@@ -74,6 +78,26 @@ export async function findOrCreateTenant(
     .single();
 
   return mustData(created, "Failed to create tenant");
+}
+
+export async function getTenantByGhlLocationId(
+  input: GetTenantByGhlLocationIdInput
+): Promise<Tenant | null> {
+  const supabase = createSupabaseAdminClient();
+
+  const result = await supabase
+    .from("venue_tenants")
+    .select("*")
+    .eq("ghl_location_id", input.ghlLocationId)
+    .maybeSingle();
+
+  if (result.error != null) {
+    throw new Error(
+      `Failed to lookup tenant by GHL location id: ${result.error.message}`
+    );
+  }
+
+  return result.data;
 }
 
 export async function findOrCreateConversation(
