@@ -1,0 +1,106 @@
+{
+  "overall": {
+    "totalCases": 12,
+    "passedCases": 12,
+    "failedCases": 0,
+    "totalChecks": 162,
+    "passedChecks": 162,
+    "failedChecks": 0,
+    "score": 100
+  },
+  "byRoute": {
+    "booking_request": {
+      "totalCases": 2,
+      "passedCases": 2,
+      "failedCases": 0,
+      "totalChecks": 27,
+      "passedChecks": 27,
+      "failedChecks": 0,
+      "score": 100
+    },
+    "general_hospitality": {
+      "totalCases": 7,
+      "passedCases": 7,
+      "failedCases": 0,
+      "totalChecks": 93,
+      "passedChecks": 93,
+      "failedChecks": 0,
+      "score": 100
+    },
+    "high_ticket_event": {
+      "totalCases": 1,
+      "passedCases": 1,
+      "failedCases": 0,
+      "totalChecks": 14,
+      "passedChecks": 14,
+      "failedChecks": 0,
+      "score": 100
+    },
+    "unknown_needs_review": {
+      "totalCases": 2,
+      "passedCases": 2,
+      "failedCases": 0,
+      "totalChecks": 28,
+      "passedChecks": 28,
+      "failedChecks": 0,
+      "score": 100
+    }
+  },
+  "byCategory": {
+    "ambiguity": {
+      "totalCases": 2,
+      "passedCases": 2,
+      "failedCases": 0,
+      "totalChecks": 26,
+      "passedChecks": 26,
+      "failedChecks": 0,
+      "score": 100
+    },
+    "baseline_control": {
+      "totalCases": 2,
+      "passedCases": 2,
+      "failedCases": 0,
+      "totalChecks": 26,
+      "passedChecks": 26,
+      "failedChecks": 0,
+      "score": 100
+    },
+    "escalation": {
+      "totalCases": 2,
+      "passedCases": 2,
+      "failedCases": 0,
+      "totalChecks": 28,
+      "passedChecks": 28,
+      "failedChecks": 0,
+      "score": 100
+    },
+    "missing_context": {
+      "totalCases": 2,
+      "passedCases": 2,
+      "failedCases": 0,
+      "totalChecks": 26,
+      "passedChecks": 26,
+      "failedChecks": 0,
+      "score": 100
+    },
+    "policy_uncertainty": {
+      "totalCases": 2,
+      "passedCases": 2,
+      "failedCases": 0,
+      "totalChecks": 28,
+      "passedChecks": 28,
+      "failedChecks": 0,
+      "score": 100
+    },
+    "pricing_trap": {
+      "totalCases": 2,
+      "passedCases": 2,
+      "failedCases": 0,
+      "totalChecks": 28,
+      "passedChecks": 28,
+      "failedChecks": 0,
+      "score": 100
+    }
+  },
+  "failedCases": []
+}

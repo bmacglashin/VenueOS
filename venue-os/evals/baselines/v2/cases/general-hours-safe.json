@@ -1,0 +1,154 @@
+{
+  "caseId": "general-hours-safe",
+  "category": "baseline_control",
+  "description": "High-confidence hospitality answers should remain safe to send when no guardrails are triggered.",
+  "fixtureFile": "general-hours-safe.json",
+  "route": {
+    "classification": "general_hospitality",
+    "confidence": 0.96,
+    "requiresHumanReview": false,
+    "rationale": "The guest is asking a standard venue-hours question."
+  },
+  "draft": {
+    "content": "We are open until 5 PM today. If helpful, I can also share directions or tasting room details.",
+    "source": "venue_os_ai_draft",
+    "status": "ready_to_send"
+  },
+  "policy": {
+    "decision": "safe_to_send",
+    "reasons": [],
+    "transportAllowed": true
+  },
+  "safeSend": {
+    "escalationSignal": false,
+    "pricingDiscussed": false,
+    "availabilityDiscussed": false,
+    "pricingVerification": "not_applicable",
+    "availabilityVerification": "not_applicable"
+  },
+  "outbound": {
+    "mode": "enabled",
+    "source": "global",
+    "action": "proceed",
+    "reasons": [
+      {
+        "code": "policy_safe_to_send",
+        "detail": "The 12A.1 response policy marked this outbound candidate safe to send."
+      }
+    ],
+    "transportAttempted": true,
+    "transportOutcome": "skipped"
+  },
+  "score": {
+    "pass": true,
+    "totalChecks": 13,
+    "passedChecks": 13,
+    "failedChecks": 0,
+    "checks": [
+      {
+        "scorer": "classification_correctness",
+        "name": "route.classification",
+        "pass": true,
+        "expected": "general_hospitality",
+        "actual": "general_hospitality",
+        "reason": "Expected route classification general_hospitality."
+      },
+      {
+        "scorer": "classification_correctness",
+        "name": "route.confidence",
+        "pass": true,
+        "expected": 0.96,
+        "actual": 0.96,
+        "reason": "Expected route confidence 0.96."
+      },
+      {
+        "scorer": "classification_correctness",
+        "name": "route.requiresHumanReview",
+        "pass": true,
+        "expected": false,
+        "actual": false,
+        "reason": "Expected requiresHumanReview=false."
+      },
+      {
+        "scorer": "policy_decision_correctness",
+        "name": "policy.decision",
+        "pass": true,
+        "expected": "safe_to_send",
+        "actual": "safe_to_send",
+        "reason": "Expected policy decision safe_to_send."
+      },
+      {
+        "scorer": "policy_decision_correctness",
+        "name": "policy.reasonCodes",
+        "pass": true,
+        "expected": [],
+        "actual": [],
+        "reason": "Expected policy reason codes to match the fixture snapshot exactly."
+      },
+      {
+        "scorer": "escalation_correctness",
+        "name": "safeSend.escalationSignal",
+        "pass": true,
+        "expected": false,
+        "actual": false,
+        "reason": "Expected escalationSignal=false."
+      },
+      {
+        "scorer": "pricing_availability_guardrail_correctness",
+        "name": "safeSend.pricingDiscussed",
+        "pass": true,
+        "expected": false,
+        "actual": false,
+        "reason": "Expected pricingDiscussed=false."
+      },
+      {
+        "scorer": "pricing_availability_guardrail_correctness",
+        "name": "safeSend.pricingVerification",
+        "pass": true,
+        "expected": "not_applicable",
+        "actual": "not_applicable",
+        "reason": "Expected pricingVerification=not_applicable."
+      },
+      {
+        "scorer": "pricing_availability_guardrail_correctness",
+        "name": "safeSend.availabilityDiscussed",
+        "pass": true,
+        "expected": false,
+        "actual": false,
+        "reason": "Expected availabilityDiscussed=false."
+      },
+      {
+        "scorer": "pricing_availability_guardrail_correctness",
+        "name": "safeSend.availabilityVerification",
+        "pass": true,
+        "expected": "not_applicable",
+        "actual": "not_applicable",
+        "reason": "Expected availabilityVerification=not_applicable."
+      },
+      {
+        "scorer": "review_vs_send_correctness",
+        "name": "outbound.action",
+        "pass": true,
+        "expected": "proceed",
+        "actual": "proceed",
+        "reason": "Expected outbound action proceed."
+      },
+      {
+        "scorer": "review_vs_send_correctness",
+        "name": "outbound.transportAttempted",
+        "pass": true,
+        "expected": true,
+        "actual": true,
+        "reason": "Transport should only be attempted when the outbound action is proceed."
+      },
+      {
+        "scorer": "review_vs_send_correctness",
+        "name": "draft.status",
+        "pass": true,
+        "expected": "ready_to_send",
+        "actual": "ready_to_send",
+        "reason": "Expected draft status ready_to_send."
+      }
+    ]
+  }
+}

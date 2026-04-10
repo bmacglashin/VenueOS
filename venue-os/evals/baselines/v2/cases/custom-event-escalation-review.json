@@ -1,0 +1,171 @@
+{
+  "caseId": "custom-event-escalation-review",
+  "category": "escalation",
+  "description": "High-ticket custom event requests should escalate instead of auto-send.",
+  "fixtureFile": "custom-event-escalation-review.json",
+  "route": {
+    "classification": "high_ticket_event",
+    "confidence": 0.93,
+    "requiresHumanReview": true,
+    "rationale": "The request is high-value, highly customized, and should route to human follow-up."
+  },
+  "draft": {
+    "content": "Thank you for reaching out. Our events team is reviewing the details and will follow up shortly with next steps.",
+    "source": "venue_os_ai_draft",
+    "status": "queued_for_review"
+  },
+  "policy": {
+    "decision": "needs_review",
+    "reasons": [
+      {
+        "code": "escalation_required",
+        "detail": "The route or candidate signals escalation or uncertainty and must be reviewed before sending."
+      }
+    ],
+    "transportAllowed": false
+  },
+  "safeSend": {
+    "escalationSignal": true,
+    "pricingDiscussed": false,
+    "availabilityDiscussed": false,
+    "pricingVerification": "not_applicable",
+    "availabilityVerification": "not_applicable"
+  },
+  "outbound": {
+    "mode": "enabled",
+    "source": "global",
+    "action": "queue",
+    "reasons": [
+      {
+        "code": "policy_needs_review",
+        "detail": "The 12A.1 response policy requires operator review before outbound send."
+      }
+    ],
+    "transportAttempted": false,
+    "transportOutcome": null
+  },
+  "score": {
+    "pass": true,
+    "totalChecks": 14,
+    "passedChecks": 14,
+    "failedChecks": 0,
+    "checks": [
+      {
+        "scorer": "classification_correctness",
+        "name": "route.classification",
+        "pass": true,
+        "expected": "high_ticket_event",
+        "actual": "high_ticket_event",
+        "reason": "Expected route classification high_ticket_event."
+      },
+      {
+        "scorer": "classification_correctness",
+        "name": "route.confidence",
+        "pass": true,
+        "expected": 0.93,
+        "actual": 0.93,
+        "reason": "Expected route confidence 0.93."
+      },
+      {
+        "scorer": "classification_correctness",
+        "name": "route.requiresHumanReview",
+        "pass": true,
+        "expected": true,
+        "actual": true,
+        "reason": "Expected requiresHumanReview=true."
+      },
+      {
+        "scorer": "policy_decision_correctness",
+        "name": "policy.decision",
+        "pass": true,
+        "expected": "needs_review",
+        "actual": "needs_review",
+        "reason": "Expected policy decision needs_review."
+      },
+      {
+        "scorer": "policy_decision_correctness",
+        "name": "policy.reasonCodes",
+        "pass": true,
+        "expected": [
+          "escalation_required"
+        ],
+        "actual": [
+          "escalation_required"
+        ],
+        "reason": "Expected policy reason codes to match the fixture snapshot exactly."
+      },
+      {
+        "scorer": "escalation_correctness",
+        "name": "safeSend.escalationSignal",
+        "pass": true,
+        "expected": true,
+        "actual": true,
+        "reason": "Expected escalationSignal=true."
+      },
+      {
+        "scorer": "escalation_correctness",
+        "name": "policy.escalationProtection",
+        "pass": true,
+        "expected": true,
+        "actual": true,
+        "reason": "Escalation cases must surface escalation_required and stay out of safe_to_send."
+      },
+      {
+        "scorer": "pricing_availability_guardrail_correctness",
+        "name": "safeSend.pricingDiscussed",
+        "pass": true,
+        "expected": false,
+        "actual": false,
+        "reason": "Expected pricingDiscussed=false."
+      },
+      {
+        "scorer": "pricing_availability_guardrail_correctness",
+        "name": "safeSend.pricingVerification",
+        "pass": true,
+        "expected": "not_applicable",
+        "actual": "not_applicable",
+        "reason": "Expected pricingVerification=not_applicable."
+      },
+      {
+        "scorer": "pricing_availability_guardrail_correctness",
+        "name": "safeSend.availabilityDiscussed",
+        "pass": true,
+        "expected": false,
+        "actual": false,
+        "reason": "Expected availabilityDiscussed=false."
+      },
+      {
+        "scorer": "pricing_availability_guardrail_correctness",
+        "name": "safeSend.availabilityVerification",
+        "pass": true,
+        "expected": "not_applicable",
+        "actual": "not_applicable",
+        "reason": "Expected availabilityVerification=not_applicable."
+      },
+      {
+        "scorer": "review_vs_send_correctness",
+        "name": "outbound.action",
+        "pass": true,
+        "expected": "queue",
+        "actual": "queue",
+        "reason": "Expected outbound action queue."
+      },
+      {
+        "scorer": "review_vs_send_correctness",
+        "name": "outbound.transportAttempted",
+        "pass": true,
+        "expected": false,
+        "actual": false,
+        "reason": "Transport should only be attempted when the outbound action is proceed."
+      },
+      {
+        "scorer": "review_vs_send_correctness",
+        "name": "draft.status",
+        "pass": true,
+        "expected": "queued_for_review",
+        "actual": "queued_for_review",
+        "reason": "Expected draft status queued_for_review."
+      }
+    ]
+  }
+}

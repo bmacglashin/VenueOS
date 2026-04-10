@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "id": "ambiguous-general-question-review",
+  "category": "ambiguity",
+  "description": "Ambiguous general asks should fall back to review when the route confidence is below threshold.",
+  "clock": {
+    "now": "2026-04-10T16:12:00.000Z"
+  },
+  "input": {
+    "tenantId": "10101010-1010-4010-8010-101010101010",
+    "venue": {
+      "id": "20202020-2020-4020-8020-202020202020",
+      "venueName": "Veritas Vineyard"
+    },
+    "conversation": {
+      "id": "30303030-3030-4030-8030-303030303030",
+      "ghlContactId": "contact-amb-1",
+      "ghlConversationId": "conversation-amb-1",
+      "status": "open"
+    },
+    "inbound": {
+      "content": "Can you tell me more about how weekends work there?",
+      "source": "eval_fixture",
+      "role": "user",
+      "receivedAt": "2026-04-10T16:11:00.000Z"
+    }
+  },
+  "recentMessages": [],
+  "router": {
+    "classification": {
+      "category": "general_hospitality",
+      "confidence": 0.69,
+      "requiresHumanReview": false,
+      "rationale": "The guest intent is broad and underspecified, so the route is not confident enough to auto-send."
+    },
+    "aiReply": "I can help with weekend visit details, and a team member can follow up with the best options for your plans."
+  },
+  "expect": {
+    "policy": {
+      "decision": "needs_review",
+      "reasonCodes": [
+        "low_confidence_route"
+      ]
+    },
+    "safeSend": {
+      "escalationSignal": false,
+      "pricingDiscussed": false,
+      "availabilityDiscussed": false,
+      "pricingVerification": "not_applicable",
+      "availabilityVerification": "not_applicable"
+    },
+    "outbound": {
+      "action": "queue",
+      "draftStatus": "queued_for_review"
+    }
+  },
+  "overrides": {}
+}

@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "id": "custom-event-escalation-review",
+  "category": "escalation",
+  "description": "High-ticket custom event requests should escalate instead of auto-send.",
+  "clock": {
+    "now": "2026-04-10T16:24:00.000Z"
+  },
+  "input": {
+    "tenantId": "12341234-1234-4234-8234-123412341234",
+    "venue": {
+      "id": "56785678-5678-4678-8678-567856785678",
+      "venueName": "Veritas Vineyard"
+    },
+    "conversation": {
+      "id": "90129012-9012-4012-8012-901290129012",
+      "ghlContactId": "contact-esc-1",
+      "ghlConversationId": "conversation-esc-1",
+      "status": "open"
+    },
+    "inbound": {
+      "content": "We want a fully custom wedding weekend package with private tastings and transportation. Can you put something together?",
+      "source": "eval_fixture",
+      "role": "user",
+      "receivedAt": "2026-04-10T16:23:00.000Z"
+    }
+  },
+  "recentMessages": [],
+  "router": {
+    "classification": {
+      "category": "high_ticket_event",
+      "confidence": 0.93,
+      "requiresHumanReview": true,
+      "rationale": "The request is high-value, highly customized, and should route to human follow-up."
+    },
+    "replySource": "premium_holding",
+    "aiReply": "Thank you for reaching out. Our events team is reviewing the details and will follow up shortly with next steps."
+  },
+  "expect": {
+    "policy": {
+      "decision": "needs_review",
+      "reasonCodes": [
+        "escalation_required"
+      ]
+    },
+    "safeSend": {
+      "escalationSignal": true,
+      "pricingDiscussed": false,
+      "availabilityDiscussed": false,
+      "pricingVerification": "not_applicable",
+      "availabilityVerification": "not_applicable"
+    },
+    "outbound": {
+      "action": "queue",
+      "draftStatus": "queued_for_review"
+    }
+  },
+  "overrides": {}
+}

@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "id": "missing-tenant-block",
+  "category": "missing_context",
+  "description": "The suite should explicitly block send when tenant context is missing.",
+  "clock": {
+    "now": "2026-04-10T16:28:00.000Z"
+  },
+  "input": {
+    "tenantId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeffffffff",
+    "venue": {
+      "id": "01010101-0101-4101-8101-010101010101",
+      "venueName": "Veritas Vineyard"
+    },
+    "conversation": {
+      "id": "02020202-0202-4202-8202-020202020202",
+      "ghlContactId": "contact-missing-1",
+      "ghlConversationId": "conversation-missing-1",
+      "status": "open"
+    },
+    "inbound": {
+      "content": "What are your tasting room hours?",
+      "source": "eval_fixture",
+      "role": "user",
+      "receivedAt": "2026-04-10T16:27:00.000Z"
+    }
+  },
+  "recentMessages": [],
+  "router": {
+    "classification": {
+      "category": "general_hospitality",
+      "confidence": 0.97,
+      "requiresHumanReview": false,
+      "rationale": "The guest is asking a straightforward hospitality question."
+    },
+    "aiReply": "Our tasting room is open daily from 11 AM to 5 PM."
+  },
+  "expect": {
+    "policy": {
+      "decision": "block_send",
+      "reasonCodes": [
+        "missing_tenant"
+      ]
+    },
+    "safeSend": {
+      "escalationSignal": false,
+      "pricingDiscussed": false,
+      "availabilityDiscussed": false,
+      "pricingVerification": "not_applicable",
+      "availabilityVerification": "not_applicable"
+    },
+    "outbound": {
+      "action": "block",
+      "draftStatus": "blocked"
+    }
+  },
+  "overrides": {
+    "policy": {
+      "tenantState": "missing"
+    }
+  }
+}

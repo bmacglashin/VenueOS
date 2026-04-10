@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "id": "general-hours-review-only-queue",
+  "category": "baseline_control",
+  "description": "A safe answer should still queue when outbound mode is globally review_only.",
+  "clock": {
+    "now": "2026-04-10T16:06:00.000Z"
+  },
+  "input": {
+    "tenantId": "12121212-1212-4212-8212-121212121212",
+    "venue": {
+      "id": "23232323-2323-4233-8233-232323232323",
+      "venueName": "Veritas Vineyard"
+    },
+    "conversation": {
+      "id": "34343434-3434-4344-8344-343434343434",
+      "ghlContactId": "contact-102",
+      "ghlConversationId": "conversation-102",
+      "status": "open"
+    },
+    "inbound": {
+      "content": "Do you open on Sundays?",
+      "source": "eval_fixture",
+      "role": "user",
+      "receivedAt": "2026-04-10T16:05:00.000Z"
+    }
+  },
+  "recentMessages": [],
+  "router": {
+    "classification": {
+      "category": "general_hospitality",
+      "confidence": 0.95,
+      "requiresHumanReview": false,
+      "rationale": "The guest is asking a straightforward hours question."
+    },
+    "aiReply": "Yes. We are open on Sundays from 11 AM to 5 PM."
+  },
+  "expect": {
+    "policy": {
+      "decision": "safe_to_send",
+      "reasonCodes": []
+    },
+    "safeSend": {
+      "escalationSignal": false,
+      "pricingDiscussed": false,
+      "availabilityDiscussed": false,
+      "pricingVerification": "not_applicable",
+      "availabilityVerification": "not_applicable"
+    },
+    "outbound": {
+      "action": "queue",
+      "draftStatus": "queued_for_review"
+    }
+  },
+  "overrides": {
+    "outboundMode": {
+      "globalMode": "review_only"
+    }
+  }
+}

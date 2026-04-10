@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "id": "vip-booking-escalation-review",
+  "category": "escalation",
+  "description": "VIP booking requests should escalate when the route requires human review.",
+  "clock": {
+    "now": "2026-04-10T16:26:00.000Z"
+  },
+  "input": {
+    "tenantId": "24682468-2468-4468-8468-246824682468",
+    "venue": {
+      "id": "13571357-1357-4357-8357-135713571357",
+      "venueName": "Veritas Vineyard"
+    },
+    "conversation": {
+      "id": "97539753-9753-4975-8975-975397539753",
+      "ghlContactId": "contact-esc-2",
+      "ghlConversationId": "conversation-esc-2",
+      "status": "open"
+    },
+    "inbound": {
+      "content": "Our principal wants an immediate call about reserving the venue for a VIP board dinner next week.",
+      "source": "eval_fixture",
+      "role": "user",
+      "receivedAt": "2026-04-10T16:25:00.000Z"
+    }
+  },
+  "recentMessages": [],
+  "router": {
+    "classification": {
+      "category": "booking_request",
+      "confidence": 0.9,
+      "requiresHumanReview": true,
+      "rationale": "The request is urgent and high-touch enough that a human should take over."
+    },
+    "replySource": "premium_holding",
+    "aiReply": "Thank you for reaching out. A member of our team is reviewing this request now and will contact you shortly."
+  },
+  "expect": {
+    "policy": {
+      "decision": "needs_review",
+      "reasonCodes": [
+        "escalation_required"
+      ]
+    },
+    "safeSend": {
+      "escalationSignal": true,
+      "pricingDiscussed": false,
+      "availabilityDiscussed": false,
+      "pricingVerification": "not_applicable",
+      "availabilityVerification": "not_applicable"
+    },
+    "outbound": {
+      "action": "queue",
+      "draftStatus": "queued_for_review"
+    }
+  },
+  "overrides": {}
+}

@@ -1,18 +1,19 @@
 {
   "schemaVersion": 1,
-  "id": "unknown-policy-review",
-  "description": "Unknown or risky policies should stay in premium holding review mode.",
+  "id": "fireworks-policy-review",
+  "category": "policy_uncertainty",
+  "description": "Unknown policy requests like fireworks should hold for human review.",
   "clock": {
     "now": "2026-04-10T16:20:00.000Z"
   },
   "input": {
-    "tenantId": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    "tenantId": "78787878-7878-4878-8878-787878787878",
     "venue": {
-      "id": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      "id": "89898989-8989-4898-8898-898989898989",
       "venueName": "Veritas Vineyard"
     },
     "conversation": {
-      "id": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+      "id": "90909090-9090-4090-8090-909090909090",
       "ghlContactId": "contact-401",
       "ghlConversationId": "conversation-401",
       "status": "open"
@@ -26,7 +27,7 @@
   },
   "recentMessages": [
     {
-      "id": "12121212-1212-4212-8212-121212121212",
+      "id": "91919191-9191-4919-8919-919191919191",
       "role": "user",
       "direction": "inbound",
       "content": "We are planning an evening wedding.",
@@ -44,5 +45,25 @@
     },
     "replySource": "premium_holding",
     "aiReply": "Thank you for reaching out to Veritas Vineyard. A member of our team is reviewing this personally and will follow up shortly."
-  }
+  },
+  "expect": {
+    "policy": {
+      "decision": "needs_review",
+      "reasonCodes": [
+        "escalation_required"
+      ]
+    },
+    "safeSend": {
+      "escalationSignal": true,
+      "pricingDiscussed": false,
+      "availabilityDiscussed": false,
+      "pricingVerification": "not_applicable",
+      "availabilityVerification": "not_applicable"
+    },
+    "outbound": {
+      "action": "queue",
+      "draftStatus": "queued_for_review"
+    }
+  },
+  "overrides": {}
 }

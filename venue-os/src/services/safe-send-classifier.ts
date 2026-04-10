@@ -10,6 +10,7 @@ const PRICING_PATTERNS = [
 
 const AVAILABILITY_PATTERNS = [
   /\bavailable\b/i,
+  /\bavailability\b/i,
   /\bopenings?\b/i,
   /\bopen slots?\b/i,
   /\bsold out\b/i,

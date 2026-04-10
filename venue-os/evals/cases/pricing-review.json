@@ -1,7 +1,8 @@
 {
   "schemaVersion": 1,
   "id": "pricing-review",
-  "description": "Pricing language should require review when facts are not verified.",
+  "category": "pricing_trap",
+  "description": "Unverified pricing language must stay in review and never look safe to send.",
   "clock": {
     "now": "2026-04-10T16:15:00.000Z"
   },
@@ -43,5 +44,25 @@
       "rationale": "The guest is asking a standard venue question."
     },
     "aiReply": "Our room fee is $2,500 plus tax for this package."
-  }
+  },
+  "expect": {
+    "policy": {
+      "decision": "needs_review",
+      "reasonCodes": [
+        "pricing_unverified"
+      ]
+    },
+    "safeSend": {
+      "escalationSignal": false,
+      "pricingDiscussed": true,
+      "availabilityDiscussed": false,
+      "pricingVerification": "unverified",
+      "availabilityVerification": "not_applicable"
+    },
+    "outbound": {
+      "action": "queue",
+      "draftStatus": "queued_for_review"
+    }
+  },
+  "overrides": {}
 }

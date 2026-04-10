@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "id": "outside-catering-policy-review",
+  "category": "policy_uncertainty",
+  "description": "Outside catering and bar exceptions should hold when the policy answer is uncertain.",
+  "clock": {
+    "now": "2026-04-10T16:22:00.000Z"
+  },
+  "input": {
+    "tenantId": "11112222-3333-4444-8555-666677778888",
+    "venue": {
+      "id": "99990000-1111-4222-8333-444455556666",
+      "venueName": "Veritas Vineyard"
+    },
+    "conversation": {
+      "id": "77778888-9999-4000-8111-222233334444",
+      "ghlContactId": "contact-pol-2",
+      "ghlConversationId": "conversation-pol-2",
+      "status": "open"
+    },
+    "inbound": {
+      "content": "Can we bring in our own caterer and bar team?",
+      "source": "eval_fixture",
+      "role": "user",
+      "receivedAt": "2026-04-10T16:21:00.000Z"
+    }
+  },
+  "recentMessages": [],
+  "router": {
+    "classification": {
+      "category": "unknown_needs_review",
+      "confidence": 0.91,
+      "requiresHumanReview": true,
+      "rationale": "The request asks about policy exceptions that should be verified by staff."
+    },
+    "replySource": "premium_holding",
+    "aiReply": "Thanks for checking with us. Our team is reviewing the policy details and will follow up with the right guidance shortly."
+  },
+  "expect": {
+    "policy": {
+      "decision": "needs_review",
+      "reasonCodes": [
+        "escalation_required"
+      ]
+    },
+    "safeSend": {
+      "escalationSignal": true,
+      "pricingDiscussed": false,
+      "availabilityDiscussed": false,
+      "pricingVerification": "not_applicable",
+      "availabilityVerification": "not_applicable"
+    },
+    "outbound": {
+      "action": "queue",
+      "draftStatus": "queued_for_review"
+    }
+  },
+  "overrides": {}
+}

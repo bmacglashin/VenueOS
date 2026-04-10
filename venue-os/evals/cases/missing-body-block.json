@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "id": "missing-body-block",
+  "category": "missing_context",
+  "description": "The suite should explicitly block send when the inbound body is treated as missing.",
+  "clock": {
+    "now": "2026-04-10T16:30:00.000Z"
+  },
+  "input": {
+    "tenantId": "bbbbcccc-dddd-4eee-8fff-000011112222",
+    "venue": {
+      "id": "03030303-0303-4303-8303-030303030303",
+      "venueName": "Veritas Vineyard"
+    },
+    "conversation": {
+      "id": "04040404-0404-4404-8404-040404040404",
+      "ghlContactId": "contact-missing-2",
+      "ghlConversationId": "conversation-missing-2",
+      "status": "open"
+    },
+    "inbound": {
+      "content": "Placeholder content for deterministic route simulation.",
+      "source": "eval_fixture",
+      "role": "user",
+      "receivedAt": "2026-04-10T16:29:00.000Z"
+    }
+  },
+  "recentMessages": [],
+  "router": {
+    "classification": {
+      "category": "general_hospitality",
+      "confidence": 0.93,
+      "requiresHumanReview": false,
+      "rationale": "The fallback route is safe, but the upstream body normalization failed."
+    },
+    "aiReply": "Our team can help with that once we have the full message details."
+  },
+  "expect": {
+    "policy": {
+      "decision": "block_send",
+      "reasonCodes": [
+        "missing_body"
+      ]
+    },
+    "safeSend": {
+      "escalationSignal": false,
+      "pricingDiscussed": false,
+      "availabilityDiscussed": false,
+      "pricingVerification": "not_applicable",
+      "availabilityVerification": "not_applicable"
+    },
+    "outbound": {
+      "action": "block",
+      "draftStatus": "blocked"
+    }
+  },
+  "overrides": {
+    "policy": {
+      "inboundBodyState": "missing"
+    }
+  }
+}
