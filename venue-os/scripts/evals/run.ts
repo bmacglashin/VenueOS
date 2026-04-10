@@ -1,7 +1,11 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { runEvalSuiteFromDirectory, writeEvalArtifacts } from "../../src/evals/runner";
+import {
+  formatEvalReport,
+  runEvalSuiteFromDirectory,
+  writeEvalArtifacts,
+} from "../../src/evals/runner";
 
 const scriptDirectoryPath = path.dirname(fileURLToPath(import.meta.url));
 const repoRootPath = path.resolve(scriptDirectoryPath, "..", "..");
@@ -19,6 +23,7 @@ async function main() {
       outputDirectoryPath
     )}.`
   );
+  console.log(formatEvalReport(artifact));
 }
 
 main().catch((error) => {

@@ -22,7 +22,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Eval runner
 
-This repo now includes a deterministic local eval harness for routing, orchestration, and response-policy regression capture.
+This repo now includes a deterministic local eval harness for routing, orchestration, outbound-control, and response-policy regression capture.
 
 ```bash
 pnpm evals:run
@@ -30,7 +30,8 @@ pnpm evals:baseline
 ```
 
 - `pnpm evals:run` validates fixtures in `evals/cases/` and writes the latest artifact to `evals/results/latest/`.
-- `pnpm evals:baseline` refreshes committed snapshots in `evals/baselines/v1/`.
+- `pnpm evals:baseline` refreshes committed snapshots in `evals/baselines/v2/`.
+- Reports include overall score, score by route, score by category, and failed-case explanations.
 - Detailed fixture authoring notes live in `docs/EVALS.md`.
 
 ## Learn More

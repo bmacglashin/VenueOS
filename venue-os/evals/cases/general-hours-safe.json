@@ -1,7 +1,8 @@
 {
   "schemaVersion": 1,
   "id": "general-hours-safe",
-  "description": "High-confidence hospitality answer should remain safe to send.",
+  "category": "baseline_control",
+  "description": "High-confidence hospitality answers should remain safe to send when no guardrails are triggered.",
   "clock": {
     "now": "2026-04-10T16:05:00.000Z"
   },
@@ -43,5 +44,23 @@
       "rationale": "The guest is asking a standard venue-hours question."
     },
     "aiReply": "We are open until 5 PM today. If helpful, I can also share directions or tasting room details."
-  }
+  },
+  "expect": {
+    "policy": {
+      "decision": "safe_to_send",
+      "reasonCodes": []
+    },
+    "safeSend": {
+      "escalationSignal": false,
+      "pricingDiscussed": false,
+      "availabilityDiscussed": false,
+      "pricingVerification": "not_applicable",
+      "availabilityVerification": "not_applicable"
+    },
+    "outbound": {
+      "action": "proceed",
+      "draftStatus": "ready_to_send"
+    }
+  },
+  "overrides": {}
 }

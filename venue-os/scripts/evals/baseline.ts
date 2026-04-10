@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   EVAL_BASELINE_VERSION,
+  formatEvalReport,
   runEvalSuiteFromDirectory,
   writeEvalArtifacts,
 } from "../../src/evals/runner";
@@ -28,6 +29,7 @@ async function main() {
       outputDirectoryPath
     )}.`
   );
+  console.log(formatEvalReport(artifact));
 }
 
 main().catch((error) => {

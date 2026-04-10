@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import {
+  formatEvalReport,
   loadEvalFixtures,
   runEvalSuite,
   writeEvalArtifacts,
@@ -13,6 +14,7 @@ import {
 const VALID_FIXTURE = {
   schemaVersion: 1,
   id: "pricing-review-case",
+  category: "pricing_trap",
   description: "Pricing language should force review when unverified.",
   clock: {
     now: "2026-04-10T16:00:00.000Z",
@@ -56,6 +58,22 @@ const VALID_FIXTURE = {
     },
     aiReply: "Our room fee is $2,500 plus tax for this package.",
   },
+  expect: {
+    policy: {
+      decision: "needs_review",
+      reasonCodes: ["pricing_unverified"],
+    },
+    safeSend: {
+      escalationSignal: false,
+      pricingDiscussed: true,
+      pricingVerification: "unverified",
+    },
+    outbound: {
+      action: "queue",
+      draftStatus: "queued_for_review",
+    },
+  },
+  overrides: {},
 } as const;
 
 async function writeFixture(
@@ -117,7 +135,7 @@ describe("loadEvalFixtures", () => {
 });
 
 describe("runEvalSuite", () => {
-  it("captures route, draft, and policy output for deterministic fixtures", async () => {
+  it("captures outbound control and scoring details for deterministic fixtures", async () => {
     const tempRoot = await mkdtemp(path.join(tmpdir(), "venue-os-evals-"));
 
     try {
@@ -129,19 +147,59 @@ describe("runEvalSuite", () => {
       assert.equal(artifact.totalCases, 1);
       assert.equal(artifact.cases[0]?.route.classification, "general_hospitality");
       assert.equal(artifact.cases[0]?.policy.decision, "needs_review");
-      assert.deepEqual(
-        artifact.cases[0]?.policy.reasons.map((reason) => reason.code),
-        ["pricing_unverified"]
-      );
+      assert.equal(artifact.cases[0]?.draft.status, "queued_for_review");
+      assert.equal(artifact.cases[0]?.outbound.action, "queue");
+      assert.equal(artifact.cases[0]?.score.pass, true);
+      assert.equal(artifact.report.overall.score, 100);
+      assert.equal(artifact.report.byCategory.pricing_trap?.passedCases, 1);
 
       const outputRoot = path.join(tempRoot, "output");
       await writeEvalArtifacts(outputRoot, artifact);
 
-      const writtenIndex = JSON.parse(
-        await readFile(path.join(outputRoot, "index.json"), "utf8")
-      ) as { totalCases: number };
+      const writtenReport = JSON.parse(
+        await readFile(path.join(outputRoot, "report.json"), "utf8")
+      ) as { overall: { score: number } };
 
-      assert.equal(writtenIndex.totalCases, 1);
+      assert.equal(writtenReport.overall.score, 100);
+      assert.match(formatEvalReport(artifact), /Failed cases: none/);
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("highlights failed checks and why they failed", async () => {
+    const tempRoot = await mkdtemp(path.join(tmpdir(), "venue-os-evals-"));
+
+    try {
+      await writeFixture(tempRoot, "pricing.json", {
+        ...VALID_FIXTURE,
+        expect: {
+          ...VALID_FIXTURE.expect,
+          policy: {
+            decision: "safe_to_send",
+            reasonCodes: [],
+          },
+          outbound: {
+            action: "proceed",
+            draftStatus: "ready_to_send",
+          },
+        },
+      });
+
+      const fixtures = await loadEvalFixtures(tempRoot);
+      const artifact = await runEvalSuite(fixtures);
+      const failedCase = artifact.report.failedCases[0];
+
+      assert.ok(failedCase);
+      assert.equal(failedCase?.caseId, "pricing-review-case");
+      assert.equal(failedCase?.category, "pricing_trap");
+      assert.ok(
+        failedCase?.failedChecks.some(
+          (check) => check.name === "policy.decision" && !check.pass
+        )
+      );
+      assert.match(formatEvalReport(artifact), /pricing-review-case/);
+      assert.match(formatEvalReport(artifact), /pricing_unverified/);
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }

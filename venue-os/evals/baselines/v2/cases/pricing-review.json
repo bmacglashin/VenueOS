@@ -1,0 +1,171 @@
+{
+  "caseId": "pricing-review",
+  "category": "pricing_trap",
+  "description": "Unverified pricing language must stay in review and never look safe to send.",
+  "fixtureFile": "pricing-review.json",
+  "route": {
+    "classification": "general_hospitality",
+    "confidence": 0.94,
+    "requiresHumanReview": false,
+    "rationale": "The guest is asking a standard venue question."
+  },
+  "draft": {
+    "content": "Our room fee is $2,500 plus tax for this package.",
+    "source": "venue_os_ai_draft",
+    "status": "queued_for_review"
+  },
+  "policy": {
+    "decision": "needs_review",
+    "reasons": [
+      {
+        "code": "pricing_unverified",
+        "detail": "The candidate appears to make a pricing claim without deterministic or approved verification."
+      }
+    ],
+    "transportAllowed": false
+  },
+  "safeSend": {
+    "escalationSignal": false,
+    "pricingDiscussed": true,
+    "availabilityDiscussed": false,
+    "pricingVerification": "unverified",
+    "availabilityVerification": "not_applicable"
+  },
+  "outbound": {
+    "mode": "enabled",
+    "source": "global",
+    "action": "queue",
+    "reasons": [
+      {
+        "code": "policy_needs_review",
+        "detail": "The 12A.1 response policy requires operator review before outbound send."
+      }
+    ],
+    "transportAttempted": false,
+    "transportOutcome": null
+  },
+  "score": {
+    "pass": true,
+    "totalChecks": 14,
+    "passedChecks": 14,
+    "failedChecks": 0,
+    "checks": [
+      {
+        "scorer": "classification_correctness",
+        "name": "route.classification",
+        "pass": true,
+        "expected": "general_hospitality",
+        "actual": "general_hospitality",
+        "reason": "Expected route classification general_hospitality."
+      },
+      {
+        "scorer": "classification_correctness",
+        "name": "route.confidence",
+        "pass": true,
+        "expected": 0.94,
+        "actual": 0.94,
+        "reason": "Expected route confidence 0.94."
+      },
+      {
+        "scorer": "classification_correctness",
+        "name": "route.requiresHumanReview",
+        "pass": true,
+        "expected": false,
+        "actual": false,
+        "reason": "Expected requiresHumanReview=false."
+      },
+      {
+        "scorer": "policy_decision_correctness",
+        "name": "policy.decision",
+        "pass": true,
+        "expected": "needs_review",
+        "actual": "needs_review",
+        "reason": "Expected policy decision needs_review."
+      },
+      {
+        "scorer": "policy_decision_correctness",
+        "name": "policy.reasonCodes",
+        "pass": true,
+        "expected": [
+          "pricing_unverified"
+        ],
+        "actual": [
+          "pricing_unverified"
+        ],
+        "reason": "Expected policy reason codes to match the fixture snapshot exactly."
+      },
+      {
+        "scorer": "escalation_correctness",
+        "name": "safeSend.escalationSignal",
+        "pass": true,
+        "expected": false,
+        "actual": false,
+        "reason": "Expected escalationSignal=false."
+      },
+      {
+        "scorer": "pricing_availability_guardrail_correctness",
+        "name": "safeSend.pricingDiscussed",
+        "pass": true,
+        "expected": true,
+        "actual": true,
+        "reason": "Expected pricingDiscussed=true."
+      },
+      {
+        "scorer": "pricing_availability_guardrail_correctness",
+        "name": "safeSend.pricingVerification",
+        "pass": true,
+        "expected": "unverified",
+        "actual": "unverified",
+        "reason": "Expected pricingVerification=unverified."
+      },
+      {
+        "scorer": "pricing_availability_guardrail_correctness",
+        "name": "policy.pricingTrapProtection",
+        "pass": true,
+        "expected": true,
+        "actual": true,
+        "reason": "Unverified pricing claims must stay out of safe_to_send and include pricing_unverified."
+      },
+      {
+        "scorer": "pricing_availability_guardrail_correctness",
+        "name": "safeSend.availabilityDiscussed",
+        "pass": true,
+        "expected": false,
+        "actual": false,
+        "reason": "Expected availabilityDiscussed=false."
+      },
+      {
+        "scorer": "pricing_availability_guardrail_correctness",
+        "name": "safeSend.availabilityVerification",
+        "pass": true,
+        "expected": "not_applicable",
+        "actual": "not_applicable",
+        "reason": "Expected availabilityVerification=not_applicable."
+      },
+      {
+        "scorer": "review_vs_send_correctness",
+        "name": "outbound.action",
+        "pass": true,
+        "expected": "queue",
+        "actual": "queue",
+        "reason": "Expected outbound action queue."
+      },
+      {
+        "scorer": "review_vs_send_correctness",
+        "name": "outbound.transportAttempted",
+        "pass": true,
+        "expected": false,
+        "actual": false,
+        "reason": "Transport should only be attempted when the outbound action is proceed."
+      },
+      {
+        "scorer": "review_vs_send_correctness",
+        "name": "draft.status",
+        "pass": true,
+        "expected": "queued_for_review",
+        "actual": "queued_for_review",
+        "reason": "Expected draft status queued_for_review."
+      }
+    ]
+  }
+}

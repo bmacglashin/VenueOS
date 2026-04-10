@@ -1,0 +1,163 @@
+{
+  "caseId": "missing-body-block",
+  "category": "missing_context",
+  "description": "The suite should explicitly block send when the inbound body is treated as missing.",
+  "fixtureFile": "missing-body-block.json",
+  "route": {
+    "classification": "general_hospitality",
+    "confidence": 0.93,
+    "requiresHumanReview": false,
+    "rationale": "The fallback route is safe, but the upstream body normalization failed."
+  },
+  "draft": {
+    "content": "Our team can help with that once we have the full message details.",
+    "source": "venue_os_ai_draft",
+    "status": "blocked"
+  },
+  "policy": {
+    "decision": "block_send",
+    "reasons": [
+      {
+        "code": "missing_body",
+        "detail": "The outbound candidate cannot be sent because the inbound message body was empty or missing."
+      }
+    ],
+    "transportAllowed": false
+  },
+  "safeSend": {
+    "escalationSignal": false,
+    "pricingDiscussed": false,
+    "availabilityDiscussed": false,
+    "pricingVerification": "not_applicable",
+    "availabilityVerification": "not_applicable"
+  },
+  "outbound": {
+    "mode": "enabled",
+    "source": "global",
+    "action": "block",
+    "reasons": [
+      {
+        "code": "policy_block_send",
+        "detail": "The 12A.1 response policy blocked this outbound candidate from sending."
+      }
+    ],
+    "transportAttempted": false,
+    "transportOutcome": null
+  },
+  "score": {
+    "pass": true,
+    "totalChecks": 13,
+    "passedChecks": 13,
+    "failedChecks": 0,
+    "checks": [
+      {
+        "scorer": "classification_correctness",
+        "name": "route.classification",
+        "pass": true,
+        "expected": "general_hospitality",
+        "actual": "general_hospitality",
+        "reason": "Expected route classification general_hospitality."
+      },
+      {
+        "scorer": "classification_correctness",
+        "name": "route.confidence",
+        "pass": true,
+        "expected": 0.93,
+        "actual": 0.93,
+        "reason": "Expected route confidence 0.93."
+      },
+      {
+        "scorer": "classification_correctness",
+        "name": "route.requiresHumanReview",
+        "pass": true,
+        "expected": false,
+        "actual": false,
+        "reason": "Expected requiresHumanReview=false."
+      },
+      {
+        "scorer": "policy_decision_correctness",
+        "name": "policy.decision",
+        "pass": true,
+        "expected": "block_send",
+        "actual": "block_send",
+        "reason": "Expected policy decision block_send."
+      },
+      {
+        "scorer": "policy_decision_correctness",
+        "name": "policy.reasonCodes",
+        "pass": true,
+        "expected": [
+          "missing_body"
+        ],
+        "actual": [
+          "missing_body"
+        ],
+        "reason": "Expected policy reason codes to match the fixture snapshot exactly."
+      },
+      {
+        "scorer": "escalation_correctness",
+        "name": "safeSend.escalationSignal",
+        "pass": true,
+        "expected": false,
+        "actual": false,
+        "reason": "Expected escalationSignal=false."
+      },
+      {
+        "scorer": "pricing_availability_guardrail_correctness",
+        "name": "safeSend.pricingDiscussed",
+        "pass": true,
+        "expected": false,
+        "actual": false,
+        "reason": "Expected pricingDiscussed=false."
+      },
+      {
+        "scorer": "pricing_availability_guardrail_correctness",
+        "name": "safeSend.pricingVerification",
+        "pass": true,
+        "expected": "not_applicable",
+        "actual": "not_applicable",
+        "reason": "Expected pricingVerification=not_applicable."
+      },
+      {
+        "scorer": "pricing_availability_guardrail_correctness",
+        "name": "safeSend.availabilityDiscussed",
+        "pass": true,
+        "expected": false,
+        "actual": false,
+        "reason": "Expected availabilityDiscussed=false."
+      },
+      {
+        "scorer": "pricing_availability_guardrail_correctness",
+        "name": "safeSend.availabilityVerification",
+        "pass": true,
+        "expected": "not_applicable",
+        "actual": "not_applicable",
+        "reason": "Expected availabilityVerification=not_applicable."
+      },
+      {
+        "scorer": "review_vs_send_correctness",
+        "name": "outbound.action",
+        "pass": true,
+        "expected": "block",
+        "actual": "block",
+        "reason": "Expected outbound action block."
+      },
+      {
+        "scorer": "review_vs_send_correctness",
+        "name": "outbound.transportAttempted",
+        "pass": true,
+        "expected": false,
+        "actual": false,
+        "reason": "Transport should only be attempted when the outbound action is proceed."
+      },
+      {
+        "scorer": "review_vs_send_correctness",
+        "name": "draft.status",
+        "pass": true,
+        "expected": "blocked",
+        "actual": "blocked",
+        "reason": "Expected draft status blocked."
+      }
+    ]
+  }
+}

@@ -1,7 +1,8 @@
 {
   "schemaVersion": 1,
   "id": "low-confidence-booking-review",
-  "description": "Low-confidence booking intent should be routed for review before send.",
+  "category": "ambiguity",
+  "description": "Low-confidence booking intent should route for review instead of sending directly.",
   "clock": {
     "now": "2026-04-10T16:10:00.000Z"
   },
@@ -43,5 +44,25 @@
       "rationale": "The guest is asking about a tour, but the intent is not fully specified."
     },
     "aiReply": "Happy to help with a site tour. Please share a couple of preferred dates along with the best email or phone number for confirmation."
-  }
+  },
+  "expect": {
+    "policy": {
+      "decision": "needs_review",
+      "reasonCodes": [
+        "low_confidence_route"
+      ]
+    },
+    "safeSend": {
+      "escalationSignal": false,
+      "pricingDiscussed": false,
+      "availabilityDiscussed": false,
+      "pricingVerification": "not_applicable",
+      "availabilityVerification": "not_applicable"
+    },
+    "outbound": {
+      "action": "queue",
+      "draftStatus": "queued_for_review"
+    }
+  },
+  "overrides": {}
 }

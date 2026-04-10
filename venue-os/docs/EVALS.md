@@ -1,6 +1,6 @@
 # Eval Runner
 
-Shift 12B.1 adds a lightweight in-repo eval harness for deterministic local regression capture. The runner exercises the real conversation orchestrator, safe-send classifier, and response policy while swapping the live router/model calls for fixture-driven test outputs.
+Shift 12B.2 extends the in-repo eval harness with deterministic route-aware scoring, category rollups, and a starter red-team suite. The runner still exercises the real conversation orchestrator, safe-send classifier, outbound control, and response policy while swapping live router/model calls for fixture-driven outputs.
 
 ## Commands
 
@@ -9,8 +9,15 @@ pnpm evals:run
 pnpm evals:baseline
 ```
 
-- `pnpm evals:run` validates every fixture in `evals/cases/`, executes the suite locally, and writes the latest run artifact to `evals/results/latest/`.
-- `pnpm evals:baseline` re-runs the same suite and refreshes the committed baseline snapshots in `evals/baselines/v1/`.
+- `pnpm evals:run` validates every fixture in `evals/cases/`, executes the suite locally, and writes the latest artifact to `evals/results/latest/`.
+- `pnpm evals:baseline` re-runs the suite and refreshes the committed baseline snapshots in `evals/baselines/v2/`.
+
+Both commands print a readable console report with:
+
+- overall score
+- score by route
+- score by category
+- failed cases with the exact checks that failed
 
 ## Fixture format
 
@@ -19,56 +26,108 @@ Create one JSON file per case in `evals/cases/`.
 ```json
 {
   "schemaVersion": 1,
-  "id": "general-hours-safe",
-  "description": "High-confidence hospitality answer should remain safe to send.",
+  "id": "pricing-review",
+  "category": "pricing_trap",
+  "description": "Unverified pricing language must stay in review and never look safe to send.",
   "clock": {
-    "now": "2026-04-10T16:05:00.000Z"
+    "now": "2026-04-10T16:15:00.000Z"
   },
   "input": {
-    "tenantId": "11111111-1111-4111-8111-111111111111",
+    "tenantId": "99999999-9999-4999-8999-999999999999",
     "venue": {
-      "id": "22222222-2222-4222-8222-222222222222",
+      "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       "venueName": "Veritas Vineyard"
     },
     "conversation": {
-      "id": "33333333-3333-4333-8333-333333333333",
+      "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
       "status": "open"
     },
     "inbound": {
-      "content": "What time do you close today?",
+      "content": "Can you share pricing for a private event?",
       "source": "eval_fixture",
       "role": "user",
-      "receivedAt": "2026-04-10T16:04:00.000Z"
+      "receivedAt": "2026-04-10T16:14:00.000Z"
     }
   },
   "recentMessages": [],
   "router": {
     "classification": {
       "category": "general_hospitality",
-      "confidence": 0.96,
+      "confidence": 0.94,
       "requiresHumanReview": false,
-      "rationale": "The guest is asking a standard venue-hours question."
+      "rationale": "The guest is asking a standard venue question."
     },
-    "aiReply": "We are open until 5 PM today."
-  }
+    "aiReply": "Our room fee is $2,500 plus tax for this package."
+  },
+  "expect": {
+    "policy": {
+      "decision": "needs_review",
+      "reasonCodes": ["pricing_unverified"]
+    },
+    "safeSend": {
+      "escalationSignal": false,
+      "pricingDiscussed": true,
+      "pricingVerification": "unverified"
+    },
+    "outbound": {
+      "action": "queue",
+      "draftStatus": "queued_for_review"
+    }
+  },
+  "overrides": {}
 }
 ```
 
-### Required fixture pieces
+## Required fixture pieces
 
+- `category`: suite bucket used by the report. Current buckets are `baseline_control`, `ambiguity`, `policy_uncertainty`, `pricing_trap`, `escalation`, and `missing_context`.
 - `clock.now`: fixed timestamp used to keep the run deterministic.
-- `input`: validated with the same conversation-turn schema the orchestrator already uses.
-- `recentMessages`: optional conversation history used as session memory for the turn.
-- `router.classification`: validated route output.
-- `router.aiReply`: deterministic draft content fed into the safe-send classifier and policy engine.
+- `input`: validated with the same conversation-turn schema the orchestrator uses.
+- `router.classification`: deterministic route output fed into orchestration.
+- `router.aiReply`: deterministic draft content passed into safe-send classification and policy evaluation.
+- `expect.policy`: expected decision and exact reason-code list.
+- `expect.outbound`: expected review-vs-send action and optional draft status.
 
-### Optional router overrides
+## Optional fixture pieces
 
-- `router.replySource`: override whether the router behaves like a normal model reply or a premium holding response.
+- `recentMessages`: deterministic session memory.
+- `router.replySource`
 - `router.pricingVerification`
 - `router.availabilityVerification`
+- `expect.safeSend.*`: use these when a case should assert escalation or pricing/availability guardrail behavior explicitly.
+- `overrides.policy.tenantState`
+- `overrides.policy.inboundBodyState`
+- `overrides.outboundMode.globalMode`
+- `overrides.outboundMode.tenantOverride`
 
-Those verification overrides are useful when a fixture needs to simulate grounded fact approval without depending on live integrations.
+The override hooks are useful for cases that need to simulate upstream normalization or delivery-mode states without changing the production orchestrator contract.
+
+## Deterministic scorers
+
+The report applies route-aware deterministic checks for:
+
+- classification correctness
+- policy decision correctness
+- escalation correctness
+- pricing and availability guardrail correctness
+- review-vs-send correctness
+
+Each case file stores the expectations that power those checks, so future regressions fail with a concrete expected-vs-actual explanation.
+
+## Report shape
+
+Each run writes:
+
+- `index.json`: full artifact including case outputs and the aggregated report
+- `report.json`: concise report-only view
+- `cases/<case-id>.json`: per-case output plus the individual scoring checks
+
+The aggregated report includes:
+
+- overall check score and case pass count
+- score by route
+- score by category
+- failed case list with the specific failed checks and why each one failed
 
 ## Validation behavior
 
@@ -79,27 +138,14 @@ Fixture loading fails fast on:
 - schema mismatches such as out-of-range confidence values
 - duplicate case IDs
 
-Validation errors include the fixture filename and the failing field path so bad cases are easy to fix.
+Validation errors include the fixture filename and failing field path so bad cases are easy to fix.
 
-## Baseline shape
+## Expanding the suite
 
-Each run captures:
-
-- route classification
-- route confidence
-- draft output
-- policy decision
-- policy reasons
-- safe-send classifier state
-
-Committed baselines live in `evals/baselines/v1/` with:
-
-- `index.json` for the full suite summary
-- `cases/<case-id>.json` for per-case snapshots
-
-## Refresh workflow
-
-1. Add or edit fixture files in `evals/cases/`.
-2. Run `pnpm evals:run` to validate the suite locally.
-3. Run `pnpm evals:baseline` to refresh committed snapshots when the new output is intentional.
-4. Review the baseline diff before committing.
+1. Pick the category the case belongs to.
+2. Add the deterministic router output you want to simulate.
+3. Fill in `expect.policy` and `expect.outbound` first.
+4. Add `expect.safeSend` whenever the case is about escalation or pricing/availability traps.
+5. Use `overrides.policy` for missing-tenant or missing-body coverage instead of weakening the production request schema.
+6. Run `pnpm evals:run` and confirm the new case passes with the expected route/category rollups.
+7. Run `pnpm evals:baseline` when the new output is intentional and review the baseline diff before committing.
