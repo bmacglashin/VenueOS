@@ -6,27 +6,30 @@
 - Shift 3 - AI service (complete)
 - Shift 4 - knowledge loading + caching (complete)
 - Shift 5 - structured routing (complete)
+- Shift 6 - Supabase schema (complete)
 
 ## Current branch
-- `feat/shift-05-structured-router`
+- `feat/shift-06-supabase-schema`
 
 ## Files changed this shift
-- `src/lib/llm/router.ts`
-- `src/services/ai.ts`
+- `supabase/migrations/0001_initial_schema.sql`
+- `docs/MASTER_PLAN.md`
 - `docs/BUILD_STATE.md`
 
 ## Validation run
 - `npx tsc --noEmit` (passes)
 - `npm run lint` (passes)
-- Manual diff review confirmed routing remains schema-backed and does not fall back to free-text classification labels.
+- `git diff --check` (passes)
+- Manual SQL review confirmed UUID primary keys, cascade relationships, timestamp defaults, `updated_at` triggers, and the requested unique/index coverage are all present.
+- Supabase CLI and `psql` are not installed in this repo environment, so no repo-local SQL execution or lint command was available for this shift.
 
 ## Blockers / open questions
-- None for Shift 5 within the current scoped implementation.
+- None for Shift 6 within the current scoped implementation.
 
 ## Env readiness
-- Inbound routing is now split into schema-backed classification plus response generation orchestration.
-- `routeInboundMessage()` uses `getVenueKnowledge()` and recent conversation history as grounding context before dispatching to `runVenueModel()`.
-- `unknown_needs_review` now returns a deterministic premium holding response and marks the message for human review without persisting records in this shift.
+- Supabase now has an initial migration-managed canonical schema for tenants, conversations, messages, knowledge sources, and audit logs.
+- Canonical tables use UUID primary keys, `timestamptz` timestamps, cascade deletes on tenant/conversation relationships, and automatic `updated_at` maintenance where records are mutable.
+- The schema stays intentionally lean for Shift 6: no vector storage, no auth/admin surfaces, and no analytics-specific tables or policies yet.
 
 ## Next recommended shift
-- Shift 6 - Supabase schema
+- Shift 7 - Supabase clients + services

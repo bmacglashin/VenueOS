@@ -14,27 +14,27 @@ Venue OS is a multi-tenant operations platform designed for venue-first workflow
   - **Scope:** `docs/MASTER_PLAN.md`, `docs/BUILD_STATE.md`, root `AGENTS.md` codex rules, and core directories for API/services/lib/data/scripts/supabase.
   - **Target end state:** Repository has clear build governance and reusable structural scaffolding with no later-shift runtime logic.
 
-- [ ] **Shift 2 — dependencies + config**
+- [x] **Shift 2 — dependencies + config**
   - **Goal:** Add required packages and baseline config contracts.
   - **Scope:** Dependency installation decisions, environment variable schema, and safe configuration wiring.
   - **Target end state:** Project dependencies/config are in place for subsequent implementation shifts.
 
-- [ ] **Shift 3 — AI service**
+- [x] **Shift 3 — AI service**
   - **Goal:** Establish AI service abstraction layer.
   - **Scope:** LLM client interfaces, server-side provider wiring, deterministic failover/error handling patterns.
   - **Target end state:** Reusable AI service can be invoked by higher-level workflows.
 
-- [ ] **Shift 4 — knowledge loading + caching**
+- [x] **Shift 4 — knowledge loading + caching**
   - **Goal:** Ingest and cache knowledge for low-latency use.
   - **Scope:** Knowledge loaders, cache strategy, invalidation/update approach.
   - **Target end state:** Structured knowledge is loadable and cached predictably.
 
-- [ ] **Shift 5 — structured routing**
+- [x] **Shift 5 — structured routing**
   - **Goal:** Implement structured request-routing for operations.
   - **Scope:** Route classification/dispatch patterns, typed contracts, minimal orchestration paths.
   - **Target end state:** Requests are routed deterministically with clear extension points.
 
-- [ ] **Shift 6 — Supabase schema**
+- [x] **Shift 6 — Supabase schema**
   - **Goal:** Define canonical data model in Supabase/Postgres.
   - **Scope:** Core tables, relationships, constraints, RLS policy planning/migrations.
   - **Target end state:** Canonical app-state schema is migration-managed and reviewable.
