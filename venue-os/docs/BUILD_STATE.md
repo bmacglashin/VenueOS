@@ -4,26 +4,28 @@
 - Shift 1 - repo source of truth (complete)
 - Shift 2 - dependencies + config (complete)
 - Shift 3 - AI service (complete)
+- Shift 4 - knowledge loading + caching (complete)
 
 ## Current branch
-- `feat/shift-03-ai-service`
+- `feat/shift-04-knowledge-loading`
 
 ## Files changed this shift
-- `package-lock.json`
-- `src/services/ai.ts`
+- `src/data/veritas-knowledge.md`
+- `src/lib/llm/knowledge.ts`
 - `docs/BUILD_STATE.md`
 
 ## Validation run
-- `npm install`
-- `npx tsc --noEmit`
-- `npm run lint`
+- `npx tsc --noEmit` (fails due pre-existing unresolved AI SDK modules in Shift 3 files)
+- `npm run lint` (passes)
+- `node --input-type=module -e "import { getVenueKnowledge } from './.tmp-knowledge-test/knowledge.mjs'; ..."` after compiling `src/lib/llm/knowledge.ts` in isolation (blocked in this environment because `server-only` is not resolvable outside Next runtime)
 
 ## Blockers / open questions
-- None at the end of Shift 3.
+- Could not pull latest `main` from `origin` or push branch because this environment does not have a configured git remote.
+- Runtime verification of the helper’s missing-file error path is blocked outside Next runtime due unresolved `server-only` package at raw Node execution time.
 
 ## Env readiness
-- Server-only AI service now reads `GOOGLE_GENERATIVE_AI_API_KEY` and `GOOGLE_MODEL` through validated env config.
-- Google provider wiring is centralized behind `runVenueModel()` so routes and future sandbox flows do not import provider SDKs directly.
+- Venue knowledge now loads through a single server-only helper (`getVenueKnowledge`) that reads from `src/data/veritas-knowledge.md` and caches at module level.
+- The helper now throws a clear, path-specific error when the knowledge file is missing.
 
 ## Next recommended shift
-- Shift 4 - knowledge loading + caching
+- Shift 5 - structured routing
