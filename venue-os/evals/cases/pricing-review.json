@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "pricing-review",
+  "description": "Pricing language should require review when facts are not verified.",
+  "clock": {
+    "now": "2026-04-10T16:15:00.000Z"
+  },
+  "input": {
+    "tenantId": "99999999-9999-4999-8999-999999999999",
+    "venue": {
+      "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "venueName": "Veritas Vineyard"
+    },
+    "conversation": {
+      "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "ghlContactId": "contact-301",
+      "ghlConversationId": "conversation-301",
+      "status": "open"
+    },
+    "inbound": {
+      "content": "Can you share pricing for a private event?",
+      "source": "eval_fixture",
+      "role": "user",
+      "receivedAt": "2026-04-10T16:14:00.000Z"
+    }
+  },
+  "recentMessages": [
+    {
+      "id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      "role": "user",
+      "direction": "inbound",
+      "content": "We are comparing event venues.",
+      "source": "eval_fixture",
+      "status": "recorded",
+      "createdAt": "2026-04-10T16:00:00.000Z"
+    }
+  ],
+  "router": {
+    "classification": {
+      "category": "general_hospitality",
+      "confidence": 0.94,
+      "requiresHumanReview": false,
+      "rationale": "The guest is asking a standard venue question."
+    },
+    "aiReply": "Our room fee is $2,500 plus tax for this package."
+  }
+}

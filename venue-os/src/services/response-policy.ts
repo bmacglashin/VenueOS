@@ -1,4 +1,4 @@
-import type { InboundRouteCategory } from "@/src/lib/llm/router";
+import type { InboundRouteCategory } from "@/src/lib/llm/route-contract";
 
 export const RESPONSE_POLICY_DECISIONS = [
   "safe_to_send",

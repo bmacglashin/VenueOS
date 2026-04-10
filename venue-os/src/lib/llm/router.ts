@@ -1,8 +1,12 @@
 import "server-only";
 
-import { z } from "zod";
-
 import { getVenueKnowledge } from "./knowledge";
+import {
+  inboundRouteClassificationSchema,
+  type InboundRouteClassification,
+  type InboundRouteCategory,
+  type RouteInboundReplySource,
+} from "./route-contract";
 import {
   runVenueModel,
   runVenueStructuredOutput,
@@ -12,25 +16,16 @@ import {
   type VenueStructuredOutputMetadata,
 } from "../../services/ai";
 
-export const INBOUND_ROUTE_CATEGORIES = [
-  "general_hospitality",
-  "high_ticket_event",
-  "booking_request",
-  "unknown_needs_review",
-] as const;
-
-export type InboundRouteCategory = (typeof INBOUND_ROUTE_CATEGORIES)[number];
-
-export const inboundRouteClassificationSchema = z.object({
-  category: z.enum(INBOUND_ROUTE_CATEGORIES),
-  confidence: z.number().min(0).max(1),
-  requiresHumanReview: z.boolean(),
-  rationale: z.string().trim().min(1),
-});
-
-export type InboundRouteClassification = z.infer<
-  typeof inboundRouteClassificationSchema
->;
+export {
+  INBOUND_ROUTE_CATEGORIES,
+  inboundRouteClassificationSchema,
+  ROUTE_INBOUND_REPLY_SOURCES,
+} from "./route-contract";
+export type {
+  InboundRouteClassification,
+  InboundRouteCategory,
+  RouteInboundReplySource,
+} from "./route-contract";
 
 export interface RouteInboundVenueContext {
   id?: string;
@@ -79,8 +74,6 @@ export interface RouteInboundMessageResult {
   aiReply: string;
   metadata: RouteInboundMessageMetadata;
 }
-
-type RouteInboundReplySource = "venue_model" | "premium_holding";
 
 const ROUTING_SCHEMA_NAME = "InboundMessageRoutingClassification";
 const ROUTING_SCHEMA_DESCRIPTION =

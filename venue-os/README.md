@@ -20,6 +20,19 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Eval runner
+
+This repo now includes a deterministic local eval harness for routing, orchestration, and response-policy regression capture.
+
+```bash
+pnpm evals:run
+pnpm evals:baseline
+```
+
+- `pnpm evals:run` validates fixtures in `evals/cases/` and writes the latest artifact to `evals/results/latest/`.
+- `pnpm evals:baseline` refreshes committed snapshots in `evals/baselines/v1/`.
+- Detailed fixture authoring notes live in `docs/EVALS.md`.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

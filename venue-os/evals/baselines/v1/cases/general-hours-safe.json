@@ -1,0 +1,28 @@
+{
+  "caseId": "general-hours-safe",
+  "description": "High-confidence hospitality answer should remain safe to send.",
+  "fixtureFile": "general-hours-safe.json",
+  "route": {
+    "classification": "general_hospitality",
+    "confidence": 0.96,
+    "requiresHumanReview": false,
+    "rationale": "The guest is asking a standard venue-hours question."
+  },
+  "draft": {
+    "content": "We are open until 5 PM today. If helpful, I can also share directions or tasting room details.",
+    "source": "venue_os_ai_draft",
+    "status": "draft"
+  },
+  "policy": {
+    "decision": "safe_to_send",
+    "reasons": [],
+    "transportAllowed": true
+  },
+  "safeSend": {
+    "escalationSignal": false,
+    "pricingDiscussed": false,
+    "availabilityDiscussed": false,
+    "pricingVerification": "not_applicable",
+    "availabilityVerification": "not_applicable"
+  }
+}

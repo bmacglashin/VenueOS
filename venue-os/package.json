@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test src/services/response-policy.test.ts src/services/conversation-orchestrator.test.ts",
+    "test": "tsx --test src/services/response-policy.test.ts src/services/conversation-orchestrator.test.ts src/evals/runner.test.ts",
+    "evals:run": "tsx scripts/evals/run.ts",
+    "evals:baseline": "tsx scripts/evals/baseline.ts",
     "seed:tenant": "node --experimental-strip-types scripts/seed-tenant.ts"
   },
   "dependencies": {

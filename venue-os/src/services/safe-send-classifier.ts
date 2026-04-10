@@ -1,4 +1,4 @@
-import type { InboundRouteClassification } from "@/src/lib/llm/router";
+import type { InboundRouteClassification } from "@/src/lib/llm/route-contract";
 import type { ResponsePolicyFactVerificationState } from "@/src/services/response-policy";
 
 const PRICING_PATTERNS = [

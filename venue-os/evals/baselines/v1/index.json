@@ -1,0 +1,145 @@
+{
+  "artifactVersion": 1,
+  "baselineVersion": "v1",
+  "totalCases": 4,
+  "summaries": {
+    "routes": {
+      "general_hospitality": 2,
+      "booking_request": 1,
+      "unknown_needs_review": 1
+    },
+    "policyDecisions": {
+      "safe_to_send": 1,
+      "needs_review": 3
+    }
+  },
+  "cases": [
+    {
+      "caseId": "general-hours-safe",
+      "description": "High-confidence hospitality answer should remain safe to send.",
+      "fixtureFile": "general-hours-safe.json",
+      "route": {
+        "classification": "general_hospitality",
+        "confidence": 0.96,
+        "requiresHumanReview": false,
+        "rationale": "The guest is asking a standard venue-hours question."
+      },
+      "draft": {
+        "content": "We are open until 5 PM today. If helpful, I can also share directions or tasting room details.",
+        "source": "venue_os_ai_draft",
+        "status": "draft"
+      },
+      "policy": {
+        "decision": "safe_to_send",
+        "reasons": [],
+        "transportAllowed": true
+      },
+      "safeSend": {
+        "escalationSignal": false,
+        "pricingDiscussed": false,
+        "availabilityDiscussed": false,
+        "pricingVerification": "not_applicable",
+        "availabilityVerification": "not_applicable"
+      }
+    },
+    {
+      "caseId": "low-confidence-booking-review",
+      "description": "Low-confidence booking intent should be routed for review before send.",
+      "fixtureFile": "low-confidence-booking-review.json",
+      "route": {
+        "classification": "booking_request",
+        "confidence": 0.61,
+        "requiresHumanReview": false,
+        "rationale": "The guest is asking about a tour, but the intent is not fully specified."
+      },
+      "draft": {
+        "content": "Happy to help with a site tour. Please share a couple of preferred dates along with the best email or phone number for confirmation.",
+        "source": "venue_os_ai_draft",
+        "status": "draft"
+      },
+      "policy": {
+        "decision": "needs_review",
+        "reasons": [
+          {
+            "code": "low_confidence_route",
+            "detail": "Route confidence 0.61 is below the 0.75 safe-send threshold."
+          }
+        ],
+        "transportAllowed": false
+      },
+      "safeSend": {
+        "escalationSignal": false,
+        "pricingDiscussed": false,
+        "availabilityDiscussed": false,
+        "pricingVerification": "not_applicable",
+        "availabilityVerification": "not_applicable"
+      }
+    },
+    {
+      "caseId": "pricing-review",
+      "description": "Pricing language should require review when facts are not verified.",
+      "fixtureFile": "pricing-review.json",
+      "route": {
+        "classification": "general_hospitality",
+        "confidence": 0.94,
+        "requiresHumanReview": false,
+        "rationale": "The guest is asking a standard venue question."
+      },
+      "draft": {
+        "content": "Our room fee is $2,500 plus tax for this package.",
+        "source": "venue_os_ai_draft",
+        "status": "draft"
+      },
+      "policy": {
+        "decision": "needs_review",
+        "reasons": [
+          {
+            "code": "pricing_unverified",
+            "detail": "The candidate appears to make a pricing claim without deterministic or approved verification."
+          }
+        ],
+        "transportAllowed": false
+      },
+      "safeSend": {
+        "escalationSignal": false,
+        "pricingDiscussed": true,
+        "availabilityDiscussed": false,
+        "pricingVerification": "unverified",
+        "availabilityVerification": "not_applicable"
+      }
+    },
+    {
+      "caseId": "unknown-policy-review",
+      "description": "Unknown or risky policies should stay in premium holding review mode.",
+      "fixtureFile": "unknown-policy-review.json",
+      "route": {
+        "classification": "unknown_needs_review",
+        "confidence": 0.88,
+        "requiresHumanReview": true,
+        "rationale": "The request touches a risky policy area that should be reviewed by staff."
+      },
+      "draft": {
+        "content": "Thank you for reaching out to Veritas Vineyard. A member of our team is reviewing this personally and will follow up shortly.",
+        "source": "venue_os_ai_draft",
+        "status": "draft"
+      },
+      "policy": {
+        "decision": "needs_review",
+        "reasons": [
+          {
+            "code": "escalation_required",
+            "detail": "The route or candidate signals escalation or uncertainty and must be reviewed before sending."
+          }
+        ],
+        "transportAllowed": false
+      },
+      "safeSend": {
+        "escalationSignal": true,
+        "pricingDiscussed": false,
+        "availabilityDiscussed": false,
+        "pricingVerification": "not_applicable",
+        "availabilityVerification": "not_applicable"
+      }
+    }
+  ]
+}
