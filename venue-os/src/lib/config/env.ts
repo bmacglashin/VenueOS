@@ -1,0 +1,31 @@
+import "server-only";
+
+import { z } from "zod";
+
+const envSchema = z
+  .object({
+    GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1),
+    GOOGLE_MODEL: z.string().min(1),
+    SUPABASE_URL: z.string().url(),
+    SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+    SUPABASE_ANON_KEY: z.string().min(1),
+    NEXT_PUBLIC_APP_URL: z.string().url(),
+    GHL_API_KEY: z.string().min(1),
+    GHL_LOCATION_ID: z.string().min(1),
+    GHL_BASE_URL: z.string().url(),
+  })
+  .strict();
+
+export const env = envSchema.parse({
+  GOOGLE_GENERATIVE_AI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+  GOOGLE_MODEL: process.env.GOOGLE_MODEL,
+  SUPABASE_URL: process.env.SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
+  NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+  GHL_API_KEY: process.env.GHL_API_KEY,
+  GHL_LOCATION_ID: process.env.GHL_LOCATION_ID,
+  GHL_BASE_URL: process.env.GHL_BASE_URL,
+});
+
+export type Env = typeof env;
