@@ -1,32 +1,29 @@
 # Build State
 
 ## Completed shifts
-- Shift 1 — repo source of truth ✅
-- Shift 2 — dependencies + config ✅
+- Shift 1 - repo source of truth (complete)
+- Shift 2 - dependencies + config (complete)
+- Shift 3 - AI service (complete)
 
 ## Current branch
-- `chore/shift-02-core-deps-config`
+- `feat/shift-03-ai-service`
 
 ## Files changed this shift
-- `.env.example`
-- `package.json`
-- `src/lib/config/env.ts`
-- `src/lib/config/app.ts`
+- `package-lock.json`
+- `src/services/ai.ts`
 - `docs/BUILD_STATE.md`
 
 ## Validation run
-- `npm install` (baseline install succeeds)
-- `npm install ai @ai-sdk/google @supabase/supabase-js @supabase/ssr zod` (blocked by registry policy in this environment)
+- `npm install`
+- `npx tsc --noEmit`
 - `npm run lint`
 
 ## Blockers / open questions
-- npm registry access for new package downloads returns HTTP 403 in this environment, so new dependencies were added to `package.json` but could not be fetched into `node_modules` or pinned in `package-lock.json`.
-- Git remote `origin` is not configured in this environment, so pull/push and remote PR URL verification are not directly runnable from local git commands.
+- None at the end of Shift 3.
 
 ## Env readiness
-- Centralized validated server config added in `src/lib/config/env.ts`.
-- Non-secret app constants/helpers added in `src/lib/config/app.ts`.
-- `.env.example` created with weekend-ready vs Monday-only guidance.
+- Server-only AI service now reads `GOOGLE_GENERATIVE_AI_API_KEY` and `GOOGLE_MODEL` through validated env config.
+- Google provider wiring is centralized behind `runVenueModel()` so routes and future sandbox flows do not import provider SDKs directly.
 
 ## Next recommended shift
-- Shift 3 — AI service
+- Shift 4 - knowledge loading + caching
