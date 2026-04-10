@@ -39,6 +39,8 @@ To learn more about Next.js, take a look at the following resources:
 
 - [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
 - [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- [Venue OS Master Plan](./docs/MASTER_PLAN.md) - phased delivery plan for the product build.
+- [Go-Live Verification Runbook](./docs/runbooks/go-live-verification.md) - outbound mode, kill-switch, and launch-day verification checklist.
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 

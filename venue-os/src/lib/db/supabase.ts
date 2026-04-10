@@ -20,6 +20,7 @@ export type Database = {
           id: string;
           name: string;
           ghl_location_id: string | null;
+          outbound_mode_override: string | null;
           slug: string;
           created_at: string;
           updated_at: string;
@@ -28,6 +29,7 @@ export type Database = {
           id?: string;
           name: string;
           ghl_location_id?: string | null;
+          outbound_mode_override?: string | null;
           slug: string;
           created_at?: string;
           updated_at?: string;
@@ -36,6 +38,7 @@ export type Database = {
           id?: string;
           name?: string;
           ghl_location_id?: string | null;
+          outbound_mode_override?: string | null;
           slug?: string;
           created_at?: string;
           updated_at?: string;

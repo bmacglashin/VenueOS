@@ -18,6 +18,15 @@ import type {
   ResponsePolicyEvaluation,
 } from "@/src/services/response-policy";
 import type {
+  OutboundDeliveryDecision,
+  ResolvedOutboundMode,
+} from "@/src/services/outbound-control";
+import { determineOutboundDelivery } from "@/src/services/outbound-control";
+import type {
+  DispatchOutboundTransportInput,
+  OutboundTransportDispatchResult,
+} from "@/src/services/outbound-transport";
+import type {
   SafeSendClassifierInput,
   SafeSendClassifierResult,
 } from "@/src/services/safe-send-classifier";
@@ -79,6 +88,9 @@ export interface OrchestrateConversationTurnResult {
   metadata: RouteInboundMessageMetadata;
   safeSendClassification: SafeSendClassifierResult;
   policy: ResponsePolicyEvaluation;
+  resolvedOutboundMode: ResolvedOutboundMode;
+  outboundDecision: OutboundDeliveryDecision;
+  outboundTransport: OutboundTransportDispatchResult | null;
 }
 
 export interface ConversationOrchestratorDependencies {
@@ -105,6 +117,10 @@ export interface ConversationOrchestratorDependencies {
     input: EvaluateResponsePolicyInput,
     options?: { now?: Date }
   ) => ResponsePolicyEvaluation;
+  resolveOutboundMode: (tenantId: string) => Promise<ResolvedOutboundMode>;
+  dispatchOutboundTransport: (
+    input: DispatchOutboundTransportInput
+  ) => Promise<OutboundTransportDispatchResult>;
   now: () => Date;
 }
 
@@ -162,6 +178,9 @@ function buildAiDraftMetadata(input: {
   conversationId: string;
   safeSendClassification: SafeSendClassifierResult;
   policy: ResponsePolicyEvaluation;
+  resolvedOutboundMode: ResolvedOutboundMode;
+  outboundDecision: OutboundDeliveryDecision;
+  outboundTransport: OutboundTransportDispatchResult | null;
 }): Json {
   return {
     kind: "ai_draft",
@@ -174,6 +193,12 @@ function buildAiDraftMetadata(input: {
       routeConfidenceThreshold: input.policy.routeConfidenceThreshold,
     }),
     safeSendClassifier: toJsonObject(input.safeSendClassification),
+    outboundMode: toJsonObject(input.resolvedOutboundMode),
+    outboundDelivery: toJsonObject({
+      action: input.outboundDecision.action,
+      reasons: input.outboundDecision.reasons,
+      transport: input.outboundTransport,
+    }),
     sessionMemory: {
       strategy: "last_messages",
       limit: SESSION_MEMORY_LIMIT,
@@ -189,6 +214,38 @@ function buildAiDraftMetadata(input: {
       }),
     },
   };
+}
+
+function getOutboundMessageStatus(
+  outboundDecision: OutboundDeliveryDecision
+): string {
+  switch (outboundDecision.action) {
+    case "proceed":
+      return "ready_to_send";
+    case "queue":
+      return "queued_for_review";
+    case "block":
+      return "blocked";
+    default: {
+      const exhaustiveCheck: never = outboundDecision.action;
+      return exhaustiveCheck;
+    }
+  }
+}
+
+function getAuditLogStatus(outboundDecision: OutboundDeliveryDecision): string {
+  switch (outboundDecision.action) {
+    case "proceed":
+      return "succeeded";
+    case "queue":
+      return "review_required";
+    case "block":
+      return "blocked";
+    default: {
+      const exhaustiveCheck: never = outboundDecision.action;
+      return exhaustiveCheck;
+    }
+  }
 }
 
 function buildResponsePolicyInput(input: {
@@ -305,6 +362,11 @@ export function createConversationOrchestrator(
           now: deps.now(),
         }
       );
+      const resolvedOutboundMode = await deps.resolveOutboundMode(input.tenantId);
+      const outboundDecision = determineOutboundDelivery({
+        policyDecision: policy.decision,
+        resolvedMode: resolvedOutboundMode,
+      });
 
       stage = "persist_ai_draft";
       const aiDraftMessage = await deps.insertOutboundMessage({
@@ -312,7 +374,7 @@ export function createConversationOrchestrator(
         role: "assistant",
         content: routedTurn.aiReply,
         source: AI_DRAFT_SOURCE,
-        status: "draft",
+        status: getOutboundMessageStatus(outboundDecision),
         metadata: buildAiDraftMetadata({
           classification: routedTurn.classification,
           metadata: routedTurn.metadata,
@@ -321,17 +383,34 @@ export function createConversationOrchestrator(
           conversationId: conversation.id,
           safeSendClassification,
           policy,
+          resolvedOutboundMode,
+          outboundDecision,
+          outboundTransport: null,
         }),
         policyDecision: policy.decision,
         policyReasons: policy.reasons,
         policyEvaluatedAt: policy.evaluatedAt,
       });
+      let outboundTransport: OutboundTransportDispatchResult | null = null;
+
+      if (outboundDecision.action === "proceed") {
+        stage = "dispatch_outbound_transport";
+        outboundTransport = await deps.dispatchOutboundTransport({
+          tenantId: input.tenantId,
+          conversationId: conversation.id,
+          outboundMessageId: aiDraftMessage.id,
+          content: routedTurn.aiReply,
+          policy,
+          resolvedOutboundMode,
+          outboundDecision,
+        });
+      }
 
       stage = "persist_audit_log";
       await deps.insertAuditLog({
         tenantId: input.tenantId,
         eventType: TURN_PERSISTED_EVENT,
-        status: policy.transportAllowed ? "succeeded" : "review_required",
+        status: getAuditLogStatus(outboundDecision),
         payload: toJsonValue({
           conversationId: conversation.id,
           inboundMessageId: inboundMessage.id,
@@ -340,6 +419,12 @@ export function createConversationOrchestrator(
           replySource: routedTurn.metadata.replySource,
           source: input.inbound.source,
           responsePolicy: policy,
+          outboundMode: resolvedOutboundMode,
+          outboundDelivery: {
+            action: outboundDecision.action,
+            reasons: outboundDecision.reasons,
+            transport: outboundTransport,
+          },
           safeSendClassifier: safeSendClassification,
           sessionMemory: {
             strategy: "last_messages",
@@ -359,6 +444,9 @@ export function createConversationOrchestrator(
         aiReply: routedTurn.aiReply,
         safeSendClassification,
         policy,
+        resolvedOutboundMode,
+        outboundDecision,
+        outboundTransport,
         metadata: {
           ...routedTurn.metadata,
           persistence: {

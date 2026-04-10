@@ -7,9 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+<<<<<<< feat/shift-12b-eval-runner-baseline
     "test": "tsx --test src/services/response-policy.test.ts src/services/conversation-orchestrator.test.ts src/evals/runner.test.ts",
     "evals:run": "tsx scripts/evals/run.ts",
     "evals:baseline": "tsx scripts/evals/baseline.ts",
+=======
+    "test": "tsx --test src/services/response-policy.test.ts src/services/outbound-control.test.ts src/services/conversation-orchestrator.test.ts",
+>>>>>>> main
     "seed:tenant": "node --experimental-strip-types scripts/seed-tenant.ts"
   },
   "dependencies": {
