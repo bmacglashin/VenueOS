@@ -5,11 +5,13 @@ import {
   type GoogleGenerativeAIProviderMetadata,
 } from "@ai-sdk/google";
 import {
+  Output,
   generateText,
   type FinishReason,
   type LanguageModelUsage,
   type ProviderMetadata,
 } from "ai";
+import { z } from "zod";
 
 import { env } from "../lib/config/env";
 
@@ -43,6 +45,24 @@ export interface RunVenueModelInput {
   knowledgeContext: string | readonly string[];
   recentMessages: readonly VenueRecentMessage[];
   mode: VenueModelMode;
+}
+
+export const VENUE_STRUCTURED_OUTPUT_PURPOSES = [
+  "inbound_message_routing",
+] as const;
+
+export type VenueStructuredOutputPurpose =
+  (typeof VENUE_STRUCTURED_OUTPUT_PURPOSES)[number];
+
+export interface RunVenueStructuredOutputInput<TSchema extends z.ZodTypeAny> {
+  system: string;
+  prompt: string;
+  schema: TSchema;
+  purpose: VenueStructuredOutputPurpose;
+  schemaName?: string;
+  schemaDescription?: string;
+  temperature?: number;
+  maxRetries?: number;
 }
 
 export interface VenueModelUsageSummary {
@@ -79,10 +99,35 @@ export interface RunVenueModelResult {
   metadata: VenueModelMetadata;
 }
 
+export interface VenueStructuredOutputMetadata {
+  provider: typeof GOOGLE_PROVIDER_NAME;
+  model: string;
+  promptVersion: typeof PROMPT_VERSION;
+  purpose: VenueStructuredOutputPurpose;
+  finishReason?: FinishReason;
+  responseId?: string;
+  responseTimestamp?: string;
+  warnings?: string[];
+  usage?: VenueModelUsageSummary;
+  providerMetadata?: ProviderMetadata;
+  google?: GoogleGenerativeAIProviderMetadata;
+}
+
+export interface RunVenueStructuredOutputResult<OBJECT> {
+  object: OBJECT;
+  metadata: VenueStructuredOutputMetadata;
+}
+
 export interface VenueModelErrorDetails {
   provider: typeof GOOGLE_PROVIDER_NAME;
   model: string;
   mode: VenueModelMode;
+}
+
+export interface VenueStructuredOutputErrorDetails {
+  provider: typeof GOOGLE_PROVIDER_NAME;
+  model: string;
+  purpose: VenueStructuredOutputPurpose;
 }
 
 export class VenueModelError extends Error {
@@ -96,6 +141,22 @@ export class VenueModelError extends Error {
   ) {
     super(message);
     this.name = "VenueModelError";
+    this.details = details;
+    this.cause = options?.cause;
+  }
+}
+
+export class VenueStructuredOutputError extends Error {
+  readonly details: VenueStructuredOutputErrorDetails;
+  override readonly cause?: unknown;
+
+  constructor(
+    message: string,
+    details: VenueStructuredOutputErrorDetails,
+    options?: { cause?: unknown }
+  ) {
+    super(message);
+    this.name = "VenueStructuredOutputError";
     this.details = details;
     this.cause = options?.cause;
   }
@@ -271,6 +332,26 @@ function extractGoogleMetadata(
   return googleMetadata as GoogleGenerativeAIProviderMetadata | undefined;
 }
 
+function summarizeWarnings(
+  warnings: Awaited<ReturnType<typeof generateText>>["warnings"]
+): string[] {
+  return (
+    warnings?.map((warning) => {
+      if ("message" in warning) {
+        return `${warning.type}:${warning.message}`;
+      }
+
+      if (warning.details != null) {
+        return warning.details != null
+          ? `${warning.type}:${warning.feature}:${warning.details}`
+          : `${warning.type}:${warning.feature}`;
+      }
+
+      return `${warning.type}:${warning.feature}`;
+    }) ?? []
+  );
+}
+
 export async function runVenueModel(
   input: RunVenueModelInput
 ): Promise<RunVenueModelResult> {
@@ -296,21 +377,6 @@ export async function runVenueModel(
       });
     }
 
-    const warnings =
-      result.warnings?.map((warning) => {
-        if ("message" in warning) {
-          return `${warning.type}:${warning.message}`;
-        }
-
-        if (warning.details != null) {
-          return warning.details != null
-            ? `${warning.type}:${warning.feature}:${warning.details}`
-            : `${warning.type}:${warning.feature}`;
-        }
-
-        return `${warning.type}:${warning.feature}`;
-      }) ?? [];
-
     return {
       replyText,
       classification: input.mode,
@@ -326,7 +392,7 @@ export async function runVenueModel(
         finishReason: result.finishReason,
         responseId: result.response.id,
         responseTimestamp: result.response.timestamp.toISOString(),
-        warnings,
+        warnings: summarizeWarnings(result.warnings),
         usage: summarizeUsage(result.usage),
         providerMetadata: result.providerMetadata,
         google: extractGoogleMetadata(result.providerMetadata),
@@ -343,6 +409,58 @@ export async function runVenueModel(
         provider: GOOGLE_PROVIDER_NAME,
         model: modelId,
         mode: input.mode,
+      },
+      { cause: error }
+    );
+  }
+}
+
+export async function runVenueStructuredOutput<TSchema extends z.ZodTypeAny>(
+  input: RunVenueStructuredOutputInput<TSchema>
+): Promise<RunVenueStructuredOutputResult<z.infer<TSchema>>> {
+  const modelId = env.GOOGLE_MODEL;
+
+  try {
+    const result = await generateText({
+      model: getVenueLanguageModel(),
+      system: input.system,
+      prompt: input.prompt,
+      output: Output.object({
+        schema: input.schema,
+        name: input.schemaName,
+        description: input.schemaDescription,
+      }),
+      temperature: input.temperature ?? 0,
+      maxRetries: input.maxRetries ?? 2,
+    });
+
+    return {
+      object: result.output as z.infer<TSchema>,
+      metadata: {
+        provider: GOOGLE_PROVIDER_NAME,
+        model: result.response.modelId || modelId,
+        promptVersion: PROMPT_VERSION,
+        purpose: input.purpose,
+        finishReason: result.finishReason,
+        responseId: result.response.id,
+        responseTimestamp: result.response.timestamp.toISOString(),
+        warnings: summarizeWarnings(result.warnings),
+        usage: summarizeUsage(result.usage),
+        providerMetadata: result.providerMetadata,
+        google: extractGoogleMetadata(result.providerMetadata),
+      },
+    };
+  } catch (error) {
+    if (error instanceof VenueStructuredOutputError) {
+      throw error;
+    }
+
+    throw new VenueStructuredOutputError(
+      "Venue structured output request failed.",
+      {
+        provider: GOOGLE_PROVIDER_NAME,
+        model: modelId,
+        purpose: input.purpose,
       },
       { cause: error }
     );
