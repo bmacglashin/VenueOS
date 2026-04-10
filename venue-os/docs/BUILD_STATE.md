@@ -7,29 +7,31 @@
 - Shift 4 - knowledge loading + caching (complete)
 - Shift 5 - structured routing (complete)
 - Shift 6 - Supabase schema (complete)
+- Shift 7 - Supabase clients + services (complete)
 
 ## Current branch
-- `feat/shift-06-supabase-schema`
+- `feat/shift-07-supabase-clients-services`
 
 ## Files changed this shift
-- `supabase/migrations/0001_initial_schema.sql`
-- `docs/MASTER_PLAN.md`
+- `src/lib/db/supabase.ts`
+- `src/lib/db/admin.ts`
+- `src/services/conversations.ts`
+- `src/services/messages.ts`
 - `docs/BUILD_STATE.md`
 
 ## Validation run
-- `npx tsc --noEmit` (passes)
+- `npx tsc --noEmit` (fails: missing type definition file for `ws` from dependency type resolution in this environment)
 - `npm run lint` (passes)
 - `git diff --check` (passes)
-- Manual SQL review confirmed UUID primary keys, cascade relationships, timestamp defaults, `updated_at` triggers, and the requested unique/index coverage are all present.
-- Supabase CLI and `psql` are not installed in this repo environment, so no repo-local SQL execution or lint command was available for this shift.
 
 ## Blockers / open questions
-- None for Shift 6 within the current scoped implementation.
+- No remote named `origin` is configured in this environment, so pull/push steps to `origin/main` could not be executed locally.
 
 ## Env readiness
-- Supabase now has an initial migration-managed canonical schema for tenants, conversations, messages, knowledge sources, and audit logs.
-- Canonical tables use UUID primary keys, `timestamptz` timestamps, cascade deletes on tenant/conversation relationships, and automatic `updated_at` maintenance where records are mutable.
-- The schema stays intentionally lean for Shift 6: no vector storage, no auth/admin surfaces, and no analytics-specific tables or policies yet.
+- Added a reusable Next.js App Router Supabase client module for browser and server contexts using the anon key.
+- Added a server-only Supabase admin client that uses service-role credentials with session persistence disabled.
+- Added reusable conversation/message service modules so routes and Mission Control can consume shared data access helpers instead of raw per-route queries.
+- Added a `findOrCreateTenant` helper so tenant creation/read can happen through the same reusable service layer.
 
 ## Next recommended shift
-- Shift 7 - Supabase clients + services
+- Shift 8 - memory MVP
