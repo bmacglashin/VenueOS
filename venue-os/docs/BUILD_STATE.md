@@ -5,27 +5,28 @@
 - Shift 2 - dependencies + config (complete)
 - Shift 3 - AI service (complete)
 - Shift 4 - knowledge loading + caching (complete)
+- Shift 5 - structured routing (complete)
 
 ## Current branch
-- `feat/shift-04-knowledge-loading`
+- `feat/shift-05-structured-router`
 
 ## Files changed this shift
-- `src/data/veritas-knowledge.md`
-- `src/lib/llm/knowledge.ts`
+- `src/lib/llm/router.ts`
+- `src/services/ai.ts`
 - `docs/BUILD_STATE.md`
 
 ## Validation run
-- `npx tsc --noEmit` (fails due pre-existing unresolved AI SDK modules in Shift 3 files)
+- `npx tsc --noEmit` (passes)
 - `npm run lint` (passes)
-- `node --input-type=module -e "import { getVenueKnowledge } from './.tmp-knowledge-test/knowledge.mjs'; ..."` after compiling `src/lib/llm/knowledge.ts` in isolation (blocked in this environment because `server-only` is not resolvable outside Next runtime)
+- Manual diff review confirmed routing remains schema-backed and does not fall back to free-text classification labels.
 
 ## Blockers / open questions
-- Could not pull latest `main` from `origin` or push branch because this environment does not have a configured git remote.
-- Runtime verification of the helper’s missing-file error path is blocked outside Next runtime due unresolved `server-only` package at raw Node execution time.
+- None for Shift 5 within the current scoped implementation.
 
 ## Env readiness
-- Venue knowledge now loads through a single server-only helper (`getVenueKnowledge`) that reads from `src/data/veritas-knowledge.md` and caches at module level.
-- The helper now throws a clear, path-specific error when the knowledge file is missing.
+- Inbound routing is now split into schema-backed classification plus response generation orchestration.
+- `routeInboundMessage()` uses `getVenueKnowledge()` and recent conversation history as grounding context before dispatching to `runVenueModel()`.
+- `unknown_needs_review` now returns a deterministic premium holding response and marks the message for human review without persisting records in this shift.
 
 ## Next recommended shift
-- Shift 5 - structured routing
+- Shift 6 - Supabase schema
