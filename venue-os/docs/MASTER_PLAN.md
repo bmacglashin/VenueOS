@@ -54,7 +54,7 @@ Venue OS is a multi-tenant operations platform designed for venue-first workflow
   - **Scope:** Inbound/outbound internal webhook handling, verification, retries/idempotency groundwork.
   - **Target end state:** Internal automation loop operates with observable handoffs.
 
-- [ ] **Shift 10 - Mission Control v0**
+- [x] **Shift 10 - Mission Control v0**
   - **Goal:** Introduce first Mission Control UI surface.
   - **Scope:** App Router page/component scaffolding, status views, thin integration points.
   - **Target end state:** Operators can access an initial control panel with core visibility.

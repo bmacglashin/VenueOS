@@ -10,35 +10,45 @@
 - Shift 7 - Supabase clients + services (complete)
 - Shift 8 - memory MVP (complete)
 - Shift 9 - internal webhook loop (complete)
+- Shift 10 - Mission Control v0 (complete)
 
 ## Current branch
-- `feat/shift-09-internal-webhook-loop`
+- `feat/shift-10-mission-control-v0`
 
 ## Files changed this shift
-- `app/api/ghl-webhook/route.ts`
-- `src/app/api/ghl-webhook/route.ts`
-- `src/services/conversations.ts`
-- `docs/BUILD_STATE.md`
 - `docs/MASTER_PLAN.md`
+- `docs/BUILD_STATE.md`
+- `src/services/conversations.ts`
+- `src/services/audit-logs.ts`
+- `src/services/mission-control.ts`
+- `src/app/mission-control/layout.tsx`
+- `src/app/mission-control/page.tsx`
+- `src/app/mission-control/conversations/[id]/page.tsx`
+- `src/app/mission-control/sandbox/actions.ts`
+- `src/app/mission-control/sandbox/page.tsx`
+- `src/components/mission-control/*`
+- `app/mission-control/*`
 
 ## Validation run
 - `npx tsc --noEmit` (passes)
 - `npm run lint` (passes)
-- `npm run build` with placeholder non-Supabase env values for missing local runtime vars (passes)
-- Local webhook probe to `POST /api/ghl-webhook` with valid JSON but no `locationId` returns `200 OK` and `accepted: false` for unresolved tenant
-- Local webhook probe to `POST /api/ghl-webhook` with invalid JSON returns `200 OK` and `accepted: false`
-- Local webhook probe to `POST /api/ghl-webhook` with a `locationId` returns `200 OK` and `accepted: false` when tenant lookup hits the current Supabase schema blocker
+- `npm run build` with real Supabase env values plus placeholder Google/GHL values for missing local runtime vars (passes)
+- Local `next start` on `http://127.0.0.1:3001`
+- `GET /mission-control` returns `200` and renders the internal Mission Control diagnostics surface against the configured backend
+- `GET /mission-control/sandbox` returns `200` and renders the sandbox diagnostics surface against the configured backend
+- `GET /mission-control/conversations/test-conversation` returns `200` and renders the conversation-detail diagnostics surface instead of a raw server error
 - `git diff --check` (passes, line-ending warnings only)
 
 ## Blockers / open questions
-- The connected Supabase environment exposed by the local `.env.local` only provides Supabase credentials, and the target project currently reports `public.venue_tenants` missing from the schema cache. That prevented confirming end-to-end DB writes for a tenant-resolved webhook hit in this environment.
+- The connected Supabase environment exposed by the local `.env.local.txt` still reports `public.venue_tenants` missing from the schema cache at runtime. Mission Control now renders internal diagnostics instead of crashing, but the live queue/sandbox flow cannot show real tenant or conversation data in this environment until the Shift 6/7 tables are available again.
+- The local browser automation MCP is currently blocked by a Windows permission issue when it tries to create `C:\Windows\.playwright-mcp`, so route verification was completed with live HTTP render checks instead of a full browser snapshot pass.
 
 ## Env readiness
-- The GHL webhook route now reads the raw request body, safely parses JSON, preserves the parsed payload plus raw body for debugging, and extracts `locationId`, `contactId`, `conversationId`, `messageId`, `receivedAt`, and inbound message text with a narrow best-effort field map.
-- Tenant resolution now uses `venue_tenants.ghl_location_id` through the shared conversation service instead of route-local Supabase queries.
-- The internal webhook loop now creates or finds the conversation through shared services, hands the normalized turn to the Shift 8 memory-aware orchestrator, and relies on that orchestration layer to persist the inbound message plus AI draft without sending anything outbound.
-- Non-happy-path webhook hits now stay internal-loop safe: invalid JSON, unresolved tenants, missing message bodies, and pre-orchestration failures all return `200 OK` and capture raw-payload debugging context through logs or tenant-scoped audit entries when possible.
-- Added a top-level `app/api/ghl-webhook/route.ts` shim that re-exports the requested `src/app/...` handler so Next.js serves the webhook under the repository's active `app` directory.
+- Mission Control v0 now exists as an internal-only App Router surface with a conversation list route, conversation detail route, AI draft panel, manual override textarea, raw payload / log panels, and a sandbox tester route.
+- The surface uses service-layer reads and composition helpers instead of embedding Supabase queries inside page files.
+- The Mission Control route segment is marked `force-dynamic` and exports `robots` metadata with `index: false` / `follow: false` so the tool remains clearly non-public.
+- The sandbox route is wired to the same core orchestration path through `runMissionControlSandboxTurn`, with the orchestration import deferred so the review surfaces can still render in Supabase-only local environments.
+- When the backend tables are unavailable, the Mission Control routes now render controlled internal diagnostics so QA and demos can still confirm environment readiness and blocker details instead of receiving raw `500` pages.
 
 ## Next recommended shift
-- Shift 10 - Mission Control v0
+- Shift 11 - tenant seeder

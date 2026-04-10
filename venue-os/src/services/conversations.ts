@@ -31,6 +31,10 @@ export interface ListConversationsInput {
   limit?: number;
 }
 
+export interface ListTenantsInput {
+  limit?: number;
+}
+
 export interface ConversationWithMessages {
   conversation: Conversation;
   messages: Message[];
@@ -94,6 +98,42 @@ export async function getTenantByGhlLocationId(
   if (result.error != null) {
     throw new Error(
       `Failed to lookup tenant by GHL location id: ${result.error.message}`
+    );
+  }
+
+  return result.data;
+}
+
+export async function listTenants(
+  input: ListTenantsInput = {}
+): Promise<Tenant[]> {
+  const supabase = createSupabaseAdminClient();
+
+  const result = await supabase
+    .from("venue_tenants")
+    .select("*")
+    .order("created_at", { ascending: true })
+    .limit(input.limit ?? 25);
+
+  if (result.error != null) {
+    throw new Error(`Failed to list tenants: ${result.error.message}`);
+  }
+
+  return result.data;
+}
+
+export async function getTenantById(tenantId: string): Promise<Tenant | null> {
+  const supabase = createSupabaseAdminClient();
+
+  const result = await supabase
+    .from("venue_tenants")
+    .select("*")
+    .eq("id", tenantId)
+    .maybeSingle();
+
+  if (result.error != null) {
+    throw new Error(
+      `Failed to fetch tenant ${tenantId}: ${result.error.message}`
     );
   }
 
