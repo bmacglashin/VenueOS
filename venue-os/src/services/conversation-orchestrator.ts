@@ -1,5 +1,6 @@
 import "server-only";
 
+import { ValidationError } from "@/src/lib/observability";
 import { routeInboundMessage } from "@/src/lib/llm/router";
 import {
   findOrCreateConversation,
@@ -8,6 +9,7 @@ import {
 import { insertAuditLog } from "@/src/services/audit-logs";
 import {
   fetchRecentMessages,
+  findMessageByGhlMessageId,
   insertInboundMessage,
   insertOutboundMessage,
 } from "@/src/services/messages";
@@ -45,13 +47,13 @@ async function resolveConversationRecord(input: ConversationTurnRequest) {
     const conversation = await getConversationById(input.conversation.id);
 
     if (conversation == null) {
-      throw new Error(
+      throw new ValidationError(
         `Conversation ${input.conversation.id} was not found for orchestration.`
       );
     }
 
     if (conversation.tenant_id !== input.tenantId) {
-      throw new Error(
+      throw new ValidationError(
         `Conversation ${input.conversation.id} does not belong to tenant ${input.tenantId}.`
       );
     }
@@ -73,6 +75,7 @@ function buildConversationOrchestratorDependencies(
   return {
     resolveConversation: resolveConversationRecord,
     fetchRecentMessages,
+    findMessageByGhlMessageId,
     routeInboundMessage,
     insertInboundMessage,
     insertOutboundMessage,

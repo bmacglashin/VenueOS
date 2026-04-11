@@ -61,14 +61,28 @@ export function AuditLogPanel({ logs }: AuditLogPanelProps) {
                     <span className="rounded-full border border-zinc-700 px-2 py-0.5">
                       {log.status}
                     </span>
+                    {log.error_type != null ? (
+                      <span className="rounded-full border border-rose-500/40 px-2 py-0.5 text-rose-200">
+                        {log.error_type}
+                      </span>
+                    ) : null}
                   </div>
                   <span className="font-mono text-xs text-zinc-500">
                     {formatTimestamp(log.created_at)}
                   </span>
                 </div>
+                <div className="mt-2 flex flex-wrap gap-2 font-mono text-[11px] text-zinc-500">
+                  <span>request {log.request_id}</span>
+                  <span>trace {log.trace_id}</span>
+                </div>
               </summary>
               <pre className="border-t border-zinc-800 px-3 py-3 text-xs leading-6 text-zinc-200">
-                {formatPayload(log.payload)}
+                {formatPayload({
+                  requestId: log.request_id,
+                  traceId: log.trace_id,
+                  errorType: log.error_type,
+                  payload: log.payload,
+                })}
               </pre>
             </details>
           ))}

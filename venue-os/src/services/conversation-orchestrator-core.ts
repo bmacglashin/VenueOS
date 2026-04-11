@@ -7,10 +7,19 @@ import type {
   RouteInboundMessageResult,
 } from "@/src/lib/llm/router";
 import type { Database, Json } from "@/src/lib/db/supabase";
+import {
+  classifyOperationalError,
+  createObservabilityContext,
+  getOperationalErrorMessage,
+  IdempotencyDropError,
+  type ObservabilityContext,
+  type StructuredEventName,
+} from "@/src/lib/observability";
 import type { VenueMessageRole, VenueRecentMessage } from "@/src/services/ai";
 import type { InsertAuditLogInput } from "@/src/services/audit-logs";
 import type {
   FetchRecentMessagesInput,
+  FindMessageByGhlMessageIdInput,
   InsertMessageInput,
 } from "@/src/services/messages";
 import type {
@@ -35,8 +44,13 @@ type Conversation = Database["public"]["Tables"]["conversations"]["Row"];
 type Message = Database["public"]["Tables"]["messages"]["Row"];
 
 const SESSION_MEMORY_LIMIT = 5;
-const TURN_PERSISTED_EVENT = "conversation_turn.persisted";
-const TURN_FAILED_EVENT = "conversation_turn.failed";
+const ROUTE_CLASSIFIED_EVENT = "route.classified";
+const POLICY_EVALUATED_EVENT = "policy.evaluated";
+const RESPONSE_DRAFTED_EVENT = "response.drafted";
+const REVIEW_QUEUED_EVENT = "review.queued";
+const OUTBOUND_SENT_EVENT = "outbound.sent";
+const OUTBOUND_FAILED_EVENT = "outbound.failed";
+const ORCHESTRATION_HALTED_EVENT = "orchestration.halted";
 const AI_DRAFT_SOURCE = "venue_os_ai_draft";
 
 const jsonValueSchema: z.ZodType<Json> = z.lazy(() =>
@@ -53,6 +67,12 @@ const jsonObjectSchema = z.record(z.string(), jsonValueSchema);
 
 export const conversationTurnRequestSchema = z.object({
   tenantId: z.string().uuid(),
+  observability: z
+    .object({
+      requestId: z.string().trim().min(1),
+      traceId: z.string().trim().min(1),
+    })
+    .optional(),
   venue: z.object({
     id: z.string().uuid().optional(),
     venueName: z.string().trim().min(1),
@@ -79,6 +99,7 @@ export type ConversationTurnRequest = z.infer<
 >;
 
 export interface OrchestrateConversationTurnResult {
+  observability: ObservabilityContext;
   conversation: Conversation;
   recentMessages: Message[];
   inboundMessage: Message;
@@ -100,6 +121,9 @@ export interface ConversationOrchestratorDependencies {
   fetchRecentMessages: (
     input: FetchRecentMessagesInput
   ) => Promise<Message[]>;
+  findMessageByGhlMessageId: (
+    input: FindMessageByGhlMessageIdInput
+  ) => Promise<Message | null>;
   routeInboundMessage: (
     input: RouteInboundMessageInput
   ) => Promise<RouteInboundMessageResult>;
@@ -115,7 +139,7 @@ export interface ConversationOrchestratorDependencies {
   ) => SafeSendClassifierResult;
   evaluateResponsePolicy: (
     input: EvaluateResponsePolicyInput,
-    options?: { now?: Date }
+    options?: { now?: Date; observability?: ObservabilityContext }
   ) => ResponsePolicyEvaluation;
   resolveOutboundMode: (tenantId: string) => Promise<ResolvedOutboundMode>;
   dispatchOutboundTransport: (
@@ -148,10 +172,12 @@ function toRouterRecentMessages(messages: readonly Message[]): VenueRecentMessag
 
 function buildInboundMessageMetadata(
   input: ConversationTurnRequest,
-  recentMessages: readonly Message[]
+  recentMessages: readonly Message[],
+  observability: ObservabilityContext
 ): Json {
   return {
     ...(input.inbound.metadata ?? {}),
+    observability,
     sessionMemory: {
       strategy: "last_messages",
       limit: SESSION_MEMORY_LIMIT,
@@ -176,6 +202,7 @@ function buildAiDraftMetadata(input: {
   recentMessages: readonly Message[];
   inboundMessageId: string;
   conversationId: string;
+  observability: ObservabilityContext;
   safeSendClassification: SafeSendClassifierResult;
   policy: ResponsePolicyEvaluation;
   resolvedOutboundMode: ResolvedOutboundMode;
@@ -184,6 +211,7 @@ function buildAiDraftMetadata(input: {
 }): Json {
   return {
     kind: "ai_draft",
+    observability: input.observability,
     route: toJsonObject(input.classification),
     responsePolicy: toJsonObject({
       decision: input.policy.decision,
@@ -191,6 +219,7 @@ function buildAiDraftMetadata(input: {
       transportAllowed: input.policy.transportAllowed,
       evaluatedAt: input.policy.evaluatedAt,
       routeConfidenceThreshold: input.policy.routeConfidenceThreshold,
+      observability: input.policy.observability,
     }),
     safeSendClassifier: toJsonObject(input.safeSendClassification),
     outboundMode: toJsonObject(input.resolvedOutboundMode),
@@ -272,25 +301,52 @@ function buildResponsePolicyInput(input: {
 export function createConversationOrchestrator(
   deps: ConversationOrchestratorDependencies
 ) {
-  async function recordFailureAuditLog(input: {
+  async function recordAuditEvent(input: {
     tenantId: string;
+    eventType: StructuredEventName;
+    observability: ObservabilityContext;
+    payload?: Json;
+    status?: string;
+    errorType?: InsertAuditLogInput["errorType"];
+  }) {
+    await deps.insertAuditLog({
+      tenantId: input.tenantId,
+      eventType: input.eventType,
+      requestId: input.observability.requestId,
+      traceId: input.observability.traceId,
+      errorType: input.errorType ?? null,
+      payload: input.payload,
+      status: input.status,
+    });
+  }
+
+  async function recordHaltedAuditLog(input: {
+    tenantId: string;
+    observability: ObservabilityContext;
     conversationId?: string;
+    inboundMessageId?: string;
+    outboundMessageId?: string;
     stage: string;
     source: string;
     error: unknown;
   }) {
-    const message =
-      input.error instanceof Error ? input.error.message : "Unknown error";
+    const errorType = classifyOperationalError(input.error);
+    const message = getOperationalErrorMessage(input.error);
 
     try {
-      await deps.insertAuditLog({
+      await recordAuditEvent({
         tenantId: input.tenantId,
-        eventType: TURN_FAILED_EVENT,
-        status: "failed",
+        eventType: ORCHESTRATION_HALTED_EVENT,
+        observability: input.observability,
+        status: errorType === "idempotency_drop" ? "dropped" : "failed",
+        errorType,
         payload: {
           conversationId: input.conversationId ?? null,
+          inboundMessageId: input.inboundMessageId ?? null,
+          outboundMessageId: input.outboundMessageId ?? null,
           stage: input.stage,
           source: input.source,
+          errorType,
           error: message,
         },
       });
@@ -307,11 +363,28 @@ export function createConversationOrchestrator(
   return async function orchestrateConversationTurn(
     input: ConversationTurnRequest
   ): Promise<OrchestrateConversationTurnResult> {
+    const observability = createObservabilityContext(input.observability);
     let stage = "resolve_conversation";
     let conversation: Conversation | undefined;
+    let inboundMessage: Message | undefined;
+    let aiDraftMessage: Message | undefined;
+    let failureEventRecorded = false;
 
     try {
       conversation = await deps.resolveConversation(input);
+
+      stage = "check_idempotency";
+      if (input.inbound.ghlMessageId != null) {
+        const existingInboundMessage = await deps.findMessageByGhlMessageId({
+          ghlMessageId: input.inbound.ghlMessageId,
+        });
+
+        if (existingInboundMessage != null) {
+          throw new IdempotencyDropError(
+            `Inbound message ${input.inbound.ghlMessageId} was already processed.`
+          );
+        }
+      }
 
       stage = "fetch_recent_messages";
       const recentMessages = await deps.fetchRecentMessages({
@@ -331,18 +404,36 @@ export function createConversationOrchestrator(
           id: conversation.id,
           recentMessages: routerRecentMessages,
         },
+        observability,
         receivedAt: input.inbound.receivedAt,
+      });
+      await recordAuditEvent({
+        tenantId: input.tenantId,
+        eventType: ROUTE_CLASSIFIED_EVENT,
+        observability,
+        status: "recorded",
+        payload: toJsonValue({
+          conversationId: conversation.id,
+          source: input.inbound.source,
+          route: routedTurn.classification,
+          replySource: routedTurn.metadata.replySource,
+          router: routedTurn.metadata.persistence,
+        }),
       });
 
       stage = "persist_inbound_message";
-      const inboundMessage = await deps.insertInboundMessage({
+      inboundMessage = await deps.insertInboundMessage({
         conversationId: conversation.id,
         role: input.inbound.role ?? "user",
         content: input.inbound.content,
         source: input.inbound.source,
         ghlMessageId: input.inbound.ghlMessageId ?? null,
         rawPayload: input.inbound.rawPayload ?? {},
-        metadata: buildInboundMessageMetadata(input, recentMessages),
+        metadata: buildInboundMessageMetadata(
+          input,
+          recentMessages,
+          observability
+        ),
       });
 
       stage = "evaluate_response_policy";
@@ -360,6 +451,7 @@ export function createConversationOrchestrator(
         }),
         {
           now: deps.now(),
+          observability,
         }
       );
       const resolvedOutboundMode = await deps.resolveOutboundMode(input.tenantId);
@@ -367,9 +459,26 @@ export function createConversationOrchestrator(
         policyDecision: policy.decision,
         resolvedMode: resolvedOutboundMode,
       });
+      await recordAuditEvent({
+        tenantId: input.tenantId,
+        eventType: POLICY_EVALUATED_EVENT,
+        observability,
+        status: "recorded",
+        payload: toJsonValue({
+          conversationId: conversation.id,
+          inboundMessageId: inboundMessage.id,
+          responsePolicy: policy,
+          outboundMode: resolvedOutboundMode,
+          outboundDelivery: {
+            action: outboundDecision.action,
+            reasons: outboundDecision.reasons,
+          },
+          safeSendClassifier: safeSendClassification,
+        }),
+      });
 
       stage = "persist_ai_draft";
-      const aiDraftMessage = await deps.insertOutboundMessage({
+      aiDraftMessage = await deps.insertOutboundMessage({
         conversationId: conversation.id,
         role: "assistant",
         content: routedTurn.aiReply,
@@ -381,6 +490,7 @@ export function createConversationOrchestrator(
           recentMessages,
           inboundMessageId: inboundMessage.id,
           conversationId: conversation.id,
+          observability,
           safeSendClassification,
           policy,
           resolvedOutboundMode,
@@ -391,51 +501,96 @@ export function createConversationOrchestrator(
         policyReasons: policy.reasons,
         policyEvaluatedAt: policy.evaluatedAt,
       });
-      let outboundTransport: OutboundTransportDispatchResult | null = null;
-
-      if (outboundDecision.action === "proceed") {
-        stage = "dispatch_outbound_transport";
-        outboundTransport = await deps.dispatchOutboundTransport({
-          tenantId: input.tenantId,
-          conversationId: conversation.id,
-          outboundMessageId: aiDraftMessage.id,
-          content: routedTurn.aiReply,
-          policy,
-          resolvedOutboundMode,
-          outboundDecision,
-        });
-      }
-
-      stage = "persist_audit_log";
-      await deps.insertAuditLog({
+      await recordAuditEvent({
         tenantId: input.tenantId,
-        eventType: TURN_PERSISTED_EVENT,
-        status: getAuditLogStatus(outboundDecision),
+        eventType: RESPONSE_DRAFTED_EVENT,
+        observability,
+        status: getOutboundMessageStatus(outboundDecision),
         payload: toJsonValue({
           conversationId: conversation.id,
           inboundMessageId: inboundMessage.id,
           aiDraftMessageId: aiDraftMessage.id,
           route: routedTurn.classification,
-          replySource: routedTurn.metadata.replySource,
-          source: input.inbound.source,
           responsePolicy: policy,
           outboundMode: resolvedOutboundMode,
           outboundDelivery: {
             action: outboundDecision.action,
             reasons: outboundDecision.reasons,
-            transport: outboundTransport,
-          },
-          safeSendClassifier: safeSendClassification,
-          sessionMemory: {
-            strategy: "last_messages",
-            limit: SESSION_MEMORY_LIMIT,
-            recentMessageCount: recentMessages.length,
-            recentMessageIds: recentMessages.map((message) => message.id),
           },
         }),
       });
+      let outboundTransport: OutboundTransportDispatchResult | null = null;
+
+      if (outboundDecision.action === "queue") {
+        await recordAuditEvent({
+          tenantId: input.tenantId,
+          eventType: REVIEW_QUEUED_EVENT,
+          observability,
+          status: "review_required",
+          payload: toJsonValue({
+            conversationId: conversation.id,
+            aiDraftMessageId: aiDraftMessage.id,
+            responsePolicy: policy,
+            outboundDelivery: {
+              action: outboundDecision.action,
+              reasons: outboundDecision.reasons,
+            },
+          }),
+        });
+      }
+
+      if (outboundDecision.action === "proceed") {
+        stage = "dispatch_outbound_transport";
+        try {
+          outboundTransport = await deps.dispatchOutboundTransport({
+            tenantId: input.tenantId,
+            conversationId: conversation.id,
+            outboundMessageId: aiDraftMessage.id,
+            content: routedTurn.aiReply,
+            observability,
+            policy,
+            resolvedOutboundMode,
+            outboundDecision,
+          });
+          await recordAuditEvent({
+            tenantId: input.tenantId,
+            eventType: OUTBOUND_SENT_EVENT,
+            observability,
+            status: getAuditLogStatus(outboundDecision),
+            payload: toJsonValue({
+              conversationId: conversation.id,
+              aiDraftMessageId: aiDraftMessage.id,
+              outboundDelivery: {
+                action: outboundDecision.action,
+                reasons: outboundDecision.reasons,
+                transport: outboundTransport,
+              },
+            }),
+          });
+        } catch (error) {
+          failureEventRecorded = true;
+          await recordAuditEvent({
+            tenantId: input.tenantId,
+            eventType: OUTBOUND_FAILED_EVENT,
+            observability,
+            status: "failed",
+            errorType: classifyOperationalError(error),
+            payload: toJsonValue({
+              conversationId: conversation.id,
+              aiDraftMessageId: aiDraftMessage.id,
+              outboundDelivery: {
+                action: outboundDecision.action,
+                reasons: outboundDecision.reasons,
+              },
+              error: getOperationalErrorMessage(error),
+            }),
+          });
+          throw error;
+        }
+      }
 
       return {
+        observability,
         conversation,
         recentMessages,
         inboundMessage,
@@ -449,6 +604,7 @@ export function createConversationOrchestrator(
         outboundTransport,
         metadata: {
           ...routedTurn.metadata,
+          observability,
           persistence: {
             ...routedTurn.metadata.persistence,
             conversationId: conversation.id,
@@ -457,13 +613,18 @@ export function createConversationOrchestrator(
         },
       };
     } catch (error) {
-      await recordFailureAuditLog({
-        tenantId: input.tenantId,
-        conversationId: conversation?.id,
-        stage,
-        source: input.inbound.source,
-        error,
-      });
+      if (!failureEventRecorded) {
+        await recordHaltedAuditLog({
+          tenantId: input.tenantId,
+          observability,
+          conversationId: conversation?.id,
+          inboundMessageId: inboundMessage?.id,
+          outboundMessageId: aiDraftMessage?.id,
+          stage,
+          source: input.inbound.source,
+          error,
+        });
+      }
 
       throw error;
     }
