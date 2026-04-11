@@ -168,6 +168,54 @@ export type Database = {
         };
         Relationships: [];
       };
+      website_inquiries: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          contact_name: string;
+          email: string;
+          phone: string | null;
+          event_date: string;
+          guest_count: number;
+          message: string;
+          source: string;
+          status: string;
+          raw_payload: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          contact_name: string;
+          email: string;
+          phone?: string | null;
+          event_date: string;
+          guest_count: number;
+          message: string;
+          source: string;
+          status?: string;
+          raw_payload?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          contact_name?: string;
+          email?: string;
+          phone?: string | null;
+          event_date?: string;
+          guest_count?: number;
+          message?: string;
+          source?: string;
+          status?: string;
+          raw_payload?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       processed_webhook_events: {
         Row: {
           id: string;

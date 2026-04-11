@@ -56,6 +56,29 @@ Two lightweight operational endpoints are available for launch-day checks and ba
 
 `/api/ops/status` requires either `Authorization: Bearer <OPS_STATUS_TOKEN>` or `x-ops-token: <OPS_STATUS_TOKEN>`.
 
+## Website inquiries
+
+`POST /api/website-inquiries` validates website-form payloads, persists them to Postgres first, and can optionally attempt a downstream sync without blocking success.
+
+Example request payload:
+
+```json
+{
+  "tenantSlug": "veritas",
+  "contactName": "Taylor Brooks",
+  "email": "taylor@example.com",
+  "phone": "555-555-0100",
+  "eventDate": "2026-10-18",
+  "guestCount": 140,
+  "message": "Looking for availability for an October reception.",
+  "source": "website_form"
+}
+```
+
+- Provide either `tenantId` or `tenantSlug`.
+- `eventDate` accepts `YYYY-MM-DD` or ISO 8601 input and is normalized before persistence.
+- Successful responses still return `201` if an optional downstream sync fails; inspect the `downstream` object for that status.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
