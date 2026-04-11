@@ -8,10 +8,12 @@ const TRACEPARENT_HEADER = "traceparent";
 
 export const STRUCTURED_EVENT_NAMES = [
   "inbound.received",
+  "idempotency.dropped",
   "route.classified",
   "policy.evaluated",
   "response.drafted",
   "review.queued",
+  "outbound.blocked",
   "outbound.sent",
   "outbound.failed",
   "orchestration.halted",
@@ -240,6 +242,18 @@ function isDuplicateInboundMessageError(error: unknown): boolean {
   );
 }
 
+function isDuplicateWebhookClaimError(error: unknown): boolean {
+  const message = getErrorMessage(error)?.toLowerCase() ?? "";
+  const code = getErrorCode(error);
+
+  return (
+    code === "23505" &&
+    (message.includes("processed_webhook_events_source_idempotency_key_key") ||
+      message.includes("processed_webhook_events") ||
+      message.includes("idempotency_key"))
+  );
+}
+
 function classifyOperationalErrorInternal(
   error: unknown,
   seen: Set<unknown>
@@ -266,6 +280,10 @@ function classifyOperationalErrorInternal(
   }
 
   if (isDuplicateInboundMessageError(error)) {
+    return "idempotency_drop";
+  }
+
+  if (isDuplicateWebhookClaimError(error)) {
     return "idempotency_drop";
   }
 

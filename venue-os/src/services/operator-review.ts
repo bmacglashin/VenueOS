@@ -365,7 +365,7 @@ function buildApprovedDraftMetadata(input: {
 
   return mergeMessageMetadata(input.draftMessage.metadata, [
     {
-      observability: input.observability,
+      observability: toJsonObject(input.observability),
     },
     {
       outboundMode: toJsonObject(input.resolvedOutboundMode),
@@ -417,7 +417,7 @@ function buildEditedDraftMetadata(input: {
     existingMetadata: {
       ...metadata,
       kind: "operator_edit",
-      observability: input.observability,
+      observability: toJsonObject(input.observability),
       route: toJsonObject(route),
       responsePolicy: toJsonObject({
         decision: input.policy.decision,
@@ -425,7 +425,7 @@ function buildEditedDraftMetadata(input: {
         transportAllowed: input.policy.transportAllowed,
         evaluatedAt: input.policy.evaluatedAt,
         routeConfidenceThreshold: input.policy.routeConfidenceThreshold,
-        observability: input.policy.observability,
+        observability: toJsonObject(input.policy.observability),
       }),
       safeSendClassifier: toJsonObject(input.safeSendClassification),
       outboundMode: toJsonObject(input.resolvedOutboundMode),

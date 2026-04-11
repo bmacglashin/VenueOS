@@ -34,6 +34,15 @@ pnpm evals:baseline
 - Reports include overall score, score by route, score by category, and failed-case explanations.
 - Detailed fixture authoring notes live in `docs/EVALS.md`.
 
+## Ops endpoints
+
+Two lightweight operational endpoints are available for launch-day checks and basic automation:
+
+- `GET /api/health` returns liveness/readiness plus config/database check details.
+- `GET /api/ops/status` returns shared audit-log counters for inbound received, review queued, outbound sent, outbound blocked, outbound failed, and duplicate dropped.
+
+`/api/ops/status` requires either `Authorization: Bearer <OPS_STATUS_TOKEN>` or `x-ops-token: <OPS_STATUS_TOKEN>`.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

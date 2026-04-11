@@ -27,6 +27,10 @@ const FIXTURE_ROUTER_MODEL = "eval-fixture-router";
 const FIXTURE_RESPONSE_MODEL = "eval-fixture-response";
 const FIXTURE_PROMPT_VERSION = "shift-3-v1" as const;
 const DEFAULT_OUTBOUND_MODE = "enabled" as const;
+const FIXTURE_OBSERVABILITY = {
+  requestId: "eval_request_id",
+  traceId: "eval_trace_id",
+} as const;
 
 export const EVAL_SCORE_TYPES = [
   "classification_correctness",
@@ -264,6 +268,7 @@ function buildFixtureRouteResult(
     classification,
     aiReply: fixture.router.aiReply,
     metadata: {
+      observability: FIXTURE_OBSERVABILITY,
       knowledgeSource: "getVenueKnowledge",
       knowledgeContextCharacters: 0,
       recentMessageCount,
@@ -893,6 +898,7 @@ export async function runEvalFixture(
   const orchestrateConversationTurn = createConversationOrchestrator({
     resolveConversation: async () => conversation,
     fetchRecentMessages: async () => recentMessages,
+    findMessageByGhlMessageId: async () => null,
     routeInboundMessage: async () => buildFixtureRouteResult(fixture),
     insertInboundMessage: async (input) =>
       createStoredMessage({
@@ -944,6 +950,7 @@ export async function runEvalFixture(
       provider: "pending_live_wiring" as const,
       detail: "Eval runner transport stub.",
       dispatchedAt: fixture.clock.now,
+      observability: FIXTURE_OBSERVABILITY,
     }),
     now: () => new Date(fixture.clock.now),
   });
