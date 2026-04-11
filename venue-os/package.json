@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test src/lib/observability.test.ts src/services/response-policy.test.ts src/services/safe-send-classifier.test.ts src/services/outbound-control.test.ts src/services/conversation-orchestrator.test.ts src/services/review-queue-core.test.ts src/services/operator-review.test.ts src/evals/runner.test.ts src/app/api/ghl-webhook/route.test.ts src/app/api/health/route.test.ts src/app/api/ops/status/route.test.ts",
+    "test": "tsx --test src/lib/observability.test.ts src/services/response-policy.test.ts src/services/safe-send-classifier.test.ts src/services/outbound-control.test.ts src/services/conversation-orchestrator.test.ts src/services/review-queue-core.test.ts src/services/operator-review.test.ts src/services/knowledge-ingestion.test.ts src/evals/runner.test.ts src/app/api/ghl-webhook/route.test.ts src/app/api/health/route.test.ts src/app/api/ops/status/route.test.ts",
     "evals:run": "tsx scripts/evals/run.ts",
     "evals:baseline": "tsx scripts/evals/baseline.ts",
     "seed:tenant": "node --experimental-strip-types scripts/seed-tenant.ts"

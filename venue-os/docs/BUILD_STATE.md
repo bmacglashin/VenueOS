@@ -15,45 +15,34 @@
 - Shift 12 - QA golden dataset (complete)
 - Shift 12B.1 - eval runner and baseline capture (complete)
 - Shift 12B.2 - route scoring and red-team eval coverage (complete)
+- Shift 12E.1 - knowledge ingestion metadata and onboarding SOP (complete)
 
 ## Current branch
-- `feat/shift-12b-route-scoring-redteam`
+- `feat/shift-12e-knowledge-metadata-onboarding`
 
 ## Files changed this shift
-- `src/lib/llm/route-contract.ts`
-- `src/lib/llm/router.ts`
-- `src/services/response-policy.ts`
-- `src/services/safe-send-classifier.ts`
-- `src/services/safe-send-classifier.test.ts`
-- `src/evals/fixture-schema.ts`
-- `src/evals/runner.ts`
-- `src/evals/runner.test.ts`
-- `scripts/evals/run.ts`
-- `scripts/evals/baseline.ts`
-- `evals/cases/*.json`
-- `evals/baselines/v2/*`
-- `docs/EVALS.md`
-- `README.md`
-- `package.json`
+- `supabase/migrations/0006_knowledge_source_metadata.sql`
+- `src/lib/db/supabase.ts`
+- `src/lib/llm/knowledge.ts`
+- `src/services/knowledge-ingestion.ts`
+- `src/services/knowledge-ingestion.test.ts`
+- `docs/knowledge-onboarding.md`
 - `docs/BUILD_STATE.md`
+- `package.json`
 
 ## Validation run
 - `npm test`
-- `npm run evals:run`
-- `npm run evals:baseline`
 - `npm run lint`
 
 ## Blockers / open questions
-- None for the local eval harness itself. This shift intentionally does not add LLM-as-judge scoring, CI gating, or a broader analytics surface.
+- No blockers. Metadata sync intentionally degrades gracefully when no tenant matches `GHL_LOCATION_ID` so request handling is not interrupted.
 
 ## Env readiness
-- Eval fixtures now live in `evals/cases/` as validated per-case JSON files with route expectations, category metadata, and deterministic outcome assertions.
-- The runner executes the real orchestrator, safe-send classifier, outbound-control logic, and response policy with a deterministic fixture-driven router test mode.
-- Latest local run artifacts are written to `evals/results/latest/` and ignored from git.
-- Committed regression baselines are versioned under `evals/baselines/v2/`.
-- Fixture validation fails clearly on malformed JSON, schema mismatches, and duplicate case IDs.
-- Local tests now cover fixture parsing, deterministic scoring/reporting, and the availability guardrail classifier path.
-- Reports now include overall score, route rollups, category rollups, and failed-case explanations.
+- Knowledge ingestion now records tenant-scoped source metadata with checksum, revision marker, ingest timestamp, and active/inactive state.
+- Re-ingesting unchanged content is deterministic and returns unchanged behavior without creating duplicate rows.
+- New content revisions automatically roll active status forward and preserve previous source rows as inactive history.
+- Runtime knowledge loading remains centralized in `src/lib/llm/knowledge.ts`.
+- Onboarding SOP added for repeatable source naming, metadata requirements, ingestion workflow, and failure triage.
 
 ## Next recommended shift
-- Shift 12B.3 - CI gating and regression-threshold enforcement for eval score changes
+- Shift 12E.2 - second-tenant ingestion pressure test and tenant-isolation retrieval assertions
