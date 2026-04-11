@@ -1,13 +1,21 @@
 import "server-only";
 
 import type { Database, Json } from "@/src/lib/db/supabase";
+import type {
+  OperationalErrorType,
+  StructuredEventName,
+} from "@/src/lib/observability";
+import { DatabaseError } from "@/src/lib/observability";
 import { createSupabaseAdminClient } from "@/src/lib/db/admin";
 
 type AuditLog = Database["public"]["Tables"]["audit_logs"]["Row"];
 
 export interface InsertAuditLogInput {
   tenantId: string;
-  eventType: string;
+  eventType: StructuredEventName;
+  requestId: string;
+  traceId: string;
+  errorType?: OperationalErrorType | null;
   payload?: Json;
   status?: string;
 }
@@ -28,6 +36,9 @@ export async function insertAuditLog(
     .insert({
       tenant_id: input.tenantId,
       event_type: input.eventType,
+      request_id: input.requestId,
+      trace_id: input.traceId,
+      error_type: input.errorType ?? null,
       payload: input.payload ?? {},
       status: input.status ?? "recorded",
     })
@@ -35,8 +46,11 @@ export async function insertAuditLog(
     .single();
 
   if (result.error != null || result.data == null) {
-    throw new Error(
-      `Failed to insert audit log: ${result.error?.message ?? "no data returned"}`
+    throw new DatabaseError(
+      `Failed to insert audit log: ${result.error?.message ?? "no data returned"}`,
+      {
+        cause: result.error,
+      }
     );
   }
 
@@ -64,7 +78,9 @@ export async function listAuditLogs(
   const result = await query;
 
   if (result.error != null) {
-    throw new Error(`Failed to list audit logs: ${result.error.message}`);
+    throw new DatabaseError(`Failed to list audit logs: ${result.error.message}`, {
+      cause: result.error,
+    });
   }
 
   return result.data;

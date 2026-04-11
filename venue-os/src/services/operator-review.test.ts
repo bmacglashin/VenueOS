@@ -538,10 +538,10 @@ describe("createOperatorReviewService", () => {
       draftMessageId: queuedDraft.id,
     });
 
-    assert.deepEqual(regenerateInput, {
-      tenantId: tenant.id,
-      conversationId: conversation.id,
-      baseDraftMessageId: queuedDraft.id,
-    });
+    assert.equal(regenerateInput?.tenantId, tenant.id);
+    assert.equal(regenerateInput?.conversationId, conversation.id);
+    assert.equal(regenerateInput?.baseDraftMessageId, queuedDraft.id);
+    assert.equal(typeof regenerateInput?.observability?.requestId, "string");
+    assert.equal(typeof regenerateInput?.observability?.traceId, "string");
   });
 });

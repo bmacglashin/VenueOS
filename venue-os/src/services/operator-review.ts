@@ -1,8 +1,15 @@
 import type { Database, Json } from "@/src/lib/db/supabase";
 import {
+  classifyOperationalError,
+  createObservabilityContext,
+  getOperationalErrorMessage,
+  type ObservabilityContext,
+} from "@/src/lib/observability";
+import {
   type RegenerateConversationDraftInput,
   type RegenerateConversationDraftResult,
 } from "@/src/services/conversation-orchestrator";
+import type { InsertAuditLogInput } from "@/src/services/audit-logs";
 import {
   OPERATOR_EDIT_SOURCE,
   buildDraftVersionMetadata,
@@ -56,17 +63,20 @@ interface ReviewContext {
 export interface AddOperatorNoteInput {
   conversationId: string;
   note: string;
+  observability?: ObservabilityContext;
 }
 
 export interface ApproveDraftAndSendInput {
   conversationId: string;
   draftMessageId?: string;
+  observability?: ObservabilityContext;
 }
 
 export interface EditDraftAndSendInput {
   conversationId: string;
   draftMessageId?: string;
   content: string;
+  observability?: ObservabilityContext;
 }
 
 export interface OperatorReviewDependencies {
@@ -77,12 +87,7 @@ export interface OperatorReviewDependencies {
   insertOutboundMessage: (
     input: Omit<InsertMessageInput, "direction">
   ) => Promise<Message>;
-  insertAuditLog: (input: {
-    tenantId: string;
-    eventType: string;
-    payload?: Json;
-    status?: string;
-  }) => Promise<unknown>;
+  insertAuditLog: (input: InsertAuditLogInput) => Promise<unknown>;
   resolveOutboundMode: (tenantId: string) => Promise<ResolvedOutboundMode>;
   dispatchOutboundTransport: (
     input: DispatchOutboundTransportInput
@@ -210,7 +215,8 @@ function readStoredPolicyReasons(message: Message): ResponsePolicyReason[] {
 
 function readStoredPolicyEvaluation(
   message: Message,
-  now: Date
+  now: Date,
+  observability: ObservabilityContext
 ): ResponsePolicyEvaluation {
   const metadata = readJsonObject(message.metadata);
   const responsePolicy = readJsonObject(metadata?.responsePolicy);
@@ -237,6 +243,7 @@ function readStoredPolicyEvaluation(
     transportAllowed: decision === "safe_to_send",
     routeConfidenceThreshold,
     evaluatedAt,
+    observability,
   };
 }
 
@@ -351,11 +358,15 @@ function buildApprovedDraftMetadata(input: {
   resolvedOutboundMode: ResolvedOutboundMode;
   transport: OutboundTransportDispatchResult;
   actedAt: string;
+  observability: ObservabilityContext;
 }): Json {
   const metadata = readJsonObject(input.draftMessage.metadata);
   const outboundDelivery = readJsonObject(metadata?.outboundDelivery);
 
   return mergeMessageMetadata(input.draftMessage.metadata, [
+    {
+      observability: input.observability,
+    },
     {
       outboundMode: toJsonObject(input.resolvedOutboundMode),
       outboundDelivery: {
@@ -386,6 +397,7 @@ function buildEditedDraftMetadata(input: {
   resolvedOutboundMode: ResolvedOutboundMode;
   transport: OutboundTransportDispatchResult | null;
   actedAt: string;
+  observability: ObservabilityContext;
 }): Json {
   const metadata = readJsonObject(input.baseDraftMessage.metadata);
   const router = readJsonObject(metadata?.router);
@@ -405,6 +417,7 @@ function buildEditedDraftMetadata(input: {
     existingMetadata: {
       ...metadata,
       kind: "operator_edit",
+      observability: input.observability,
       route: toJsonObject(route),
       responsePolicy: toJsonObject({
         decision: input.policy.decision,
@@ -412,6 +425,7 @@ function buildEditedDraftMetadata(input: {
         transportAllowed: input.policy.transportAllowed,
         evaluatedAt: input.policy.evaluatedAt,
         routeConfidenceThreshold: input.policy.routeConfidenceThreshold,
+        observability: input.policy.observability,
       }),
       safeSendClassifier: toJsonObject(input.safeSendClassification),
       outboundMode: toJsonObject(input.resolvedOutboundMode),
@@ -504,19 +518,23 @@ async function recordFailedOperatorAuditLog(
   deps: OperatorReviewDependencies,
   input: {
     tenantId: string;
-    eventType: string;
+    eventType: InsertAuditLogInput["eventType"];
+    observability: ObservabilityContext;
     conversationId: string;
     draftMessageId?: string;
     error: unknown;
   }
 ) {
-  const message =
-    input.error instanceof Error ? input.error.message : "Unknown error";
+  const errorType = classifyOperationalError(input.error);
+  const message = getOperationalErrorMessage(input.error);
 
   try {
     await deps.insertAuditLog({
       tenantId: input.tenantId,
       eventType: input.eventType,
+      requestId: input.observability.requestId,
+      traceId: input.observability.traceId,
+      errorType,
       status: "failed",
       payload: toJsonValue({
         conversationId: input.conversationId,
@@ -566,7 +584,10 @@ async function defaultInsertOutboundMessage(
 
 async function defaultInsertAuditLog(input: {
   tenantId: string;
-  eventType: string;
+  eventType: InsertAuditLogInput["eventType"];
+  requestId: string;
+  traceId: string;
+  errorType?: InsertAuditLogInput["errorType"];
   payload?: Json;
   status?: string;
 }) {
@@ -621,6 +642,7 @@ export function createOperatorReviewService(
   return {
     async addManualNote(input: AddOperatorNoteInput) {
       const note = input.note.trim();
+      const observability = createObservabilityContext(input.observability);
 
       if (note.length === 0) {
         throw new Error("A manual note is required.");
@@ -633,6 +655,8 @@ export function createOperatorReviewService(
       await deps.insertAuditLog({
         tenantId: context.tenant.id,
         eventType: NOTE_ADDED_EVENT,
+        requestId: observability.requestId,
+        traceId: observability.traceId,
         status: "recorded",
         payload: toJsonValue({
           conversationId: context.conversation.id,
@@ -654,9 +678,14 @@ export function createOperatorReviewService(
     async approveDraftAndSend(input: ApproveDraftAndSendInput) {
       const context = await resolveReviewContext(deps, input);
       const actedAt = deps.now().toISOString();
+      const observability = createObservabilityContext(input.observability);
 
       try {
-        const policy = readStoredPolicyEvaluation(context.draftMessage, deps.now());
+        const policy = readStoredPolicyEvaluation(
+          context.draftMessage,
+          deps.now(),
+          observability
+        );
         const resolvedOutboundMode = await deps.resolveOutboundMode(
           context.tenant.id
         );
@@ -672,6 +701,7 @@ export function createOperatorReviewService(
           conversationId: context.conversation.id,
           outboundMessageId: context.draftMessage.id,
           content: context.draftMessage.content,
+          observability,
           policy,
           resolvedOutboundMode,
           outboundDecision,
@@ -684,12 +714,15 @@ export function createOperatorReviewService(
             resolvedOutboundMode,
             transport,
             actedAt,
+            observability,
           }),
         });
 
         await deps.insertAuditLog({
           tenantId: context.tenant.id,
           eventType: APPROVE_AND_SEND_EVENT,
+          requestId: observability.requestId,
+          traceId: observability.traceId,
           status: "succeeded",
           payload: toJsonValue({
             conversationId: context.conversation.id,
@@ -718,6 +751,7 @@ export function createOperatorReviewService(
         await recordFailedOperatorAuditLog(deps, {
           tenantId: context.tenant.id,
           eventType: APPROVE_AND_SEND_EVENT,
+          observability,
           conversationId: context.conversation.id,
           draftMessageId: context.draftMessage.id,
           error,
@@ -729,6 +763,7 @@ export function createOperatorReviewService(
 
     async editDraftAndSend(input: EditDraftAndSendInput) {
       const content = input.content.trim();
+      const observability = createObservabilityContext(input.observability);
 
       if (content.length === 0) {
         throw new Error("Edited content is required before sending.");
@@ -752,6 +787,7 @@ export function createOperatorReviewService(
           }),
           {
             now: deps.now(),
+            observability,
           }
         );
         const resolvedOutboundMode = await deps.resolveOutboundMode(
@@ -768,6 +804,7 @@ export function createOperatorReviewService(
           resolvedOutboundMode,
           transport: null,
           actedAt,
+          observability,
         });
         const insertedEditedMessage = await deps.insertOutboundMessage({
           conversationId: context.conversation.id,
@@ -789,6 +826,7 @@ export function createOperatorReviewService(
           conversationId: context.conversation.id,
           outboundMessageId: insertedEditedMessage.id,
           content,
+          observability,
           policy,
           resolvedOutboundMode,
           outboundDecision,
@@ -804,6 +842,7 @@ export function createOperatorReviewService(
             resolvedOutboundMode,
             transport,
             actedAt,
+            observability,
           }),
         });
 
@@ -815,6 +854,8 @@ export function createOperatorReviewService(
         await deps.insertAuditLog({
           tenantId: context.tenant.id,
           eventType: EDIT_AND_SEND_EVENT,
+          requestId: observability.requestId,
+          traceId: observability.traceId,
           status: "succeeded",
           payload: toJsonValue({
             conversationId: context.conversation.id,
@@ -849,6 +890,7 @@ export function createOperatorReviewService(
         await recordFailedOperatorAuditLog(deps, {
           tenantId: context.tenant.id,
           eventType: EDIT_AND_SEND_EVENT,
+          observability,
           conversationId: context.conversation.id,
           draftMessageId: context.draftMessage.id,
           error,
@@ -860,17 +902,20 @@ export function createOperatorReviewService(
 
     async regenerateDraft(input: ApproveDraftAndSendInput) {
       const context = await resolveReviewContext(deps, input);
+      const observability = createObservabilityContext(input.observability);
 
       try {
         return deps.regenerateConversationDraft({
           tenantId: context.tenant.id,
           conversationId: context.conversation.id,
           baseDraftMessageId: context.draftMessage.id,
+          observability,
         });
       } catch (error) {
         await recordFailedOperatorAuditLog(deps, {
           tenantId: context.tenant.id,
           eventType: "operator_action.regenerate_draft",
+          observability,
           conversationId: context.conversation.id,
           draftMessageId: context.draftMessage.id,
           error,

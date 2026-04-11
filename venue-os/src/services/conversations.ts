@@ -3,6 +3,7 @@ import "server-only";
 import type { PostgrestSingleResponse } from "@supabase/supabase-js";
 
 import type { Database } from "@/src/lib/db/supabase";
+import { DatabaseError } from "@/src/lib/observability";
 import { createSupabaseAdminClient } from "@/src/lib/db/admin";
 
 type Tenant = Database["public"]["Tables"]["venue_tenants"]["Row"];
@@ -42,11 +43,13 @@ export interface ConversationWithMessages {
 
 function mustData<T>(result: PostgrestSingleResponse<T>, context: string): T {
   if (result.error != null) {
-    throw new Error(`${context}: ${result.error.message}`);
+    throw new DatabaseError(`${context}: ${result.error.message}`, {
+      cause: result.error,
+    });
   }
 
   if (result.data == null) {
-    throw new Error(`${context}: no data returned`);
+    throw new DatabaseError(`${context}: no data returned`);
   }
 
   return result.data;
@@ -64,7 +67,12 @@ export async function findOrCreateTenant(
     .maybeSingle();
 
   if (lookup.error != null) {
-    throw new Error(`Failed to lookup tenant by slug: ${lookup.error.message}`);
+    throw new DatabaseError(
+      `Failed to lookup tenant by slug: ${lookup.error.message}`,
+      {
+        cause: lookup.error,
+      }
+    );
   }
 
   if (lookup.data != null) {
@@ -96,8 +104,11 @@ export async function getTenantByGhlLocationId(
     .maybeSingle();
 
   if (result.error != null) {
-    throw new Error(
-      `Failed to lookup tenant by GHL location id: ${result.error.message}`
+    throw new DatabaseError(
+      `Failed to lookup tenant by GHL location id: ${result.error.message}`,
+      {
+        cause: result.error,
+      }
     );
   }
 
@@ -116,7 +127,9 @@ export async function listTenants(
     .limit(input.limit ?? 25);
 
   if (result.error != null) {
-    throw new Error(`Failed to list tenants: ${result.error.message}`);
+    throw new DatabaseError(`Failed to list tenants: ${result.error.message}`, {
+      cause: result.error,
+    });
   }
 
   return result.data;
@@ -132,8 +145,11 @@ export async function getTenantById(tenantId: string): Promise<Tenant | null> {
     .maybeSingle();
 
   if (result.error != null) {
-    throw new Error(
-      `Failed to fetch tenant ${tenantId}: ${result.error.message}`
+    throw new DatabaseError(
+      `Failed to fetch tenant ${tenantId}: ${result.error.message}`,
+      {
+        cause: result.error,
+      }
     );
   }
 
@@ -154,8 +170,11 @@ export async function findOrCreateConversation(
       .maybeSingle();
 
     if (byGhlConversationId.error != null) {
-      throw new Error(
-        `Failed to lookup conversation by GHL conversation id: ${byGhlConversationId.error.message}`
+      throw new DatabaseError(
+        `Failed to lookup conversation by GHL conversation id: ${byGhlConversationId.error.message}`,
+        {
+          cause: byGhlConversationId.error,
+        }
       );
     }
 
@@ -191,7 +210,12 @@ export async function listConversations(
     .limit(input.limit ?? 50);
 
   if (result.error != null) {
-    throw new Error(`Failed to list conversations: ${result.error.message}`);
+    throw new DatabaseError(
+      `Failed to list conversations: ${result.error.message}`,
+      {
+        cause: result.error,
+      }
+    );
   }
 
   return result.data;
@@ -209,8 +233,11 @@ export async function getConversationById(
     .maybeSingle();
 
   if (result.error != null) {
-    throw new Error(
-      `Failed to fetch conversation ${conversationId}: ${result.error.message}`
+    throw new DatabaseError(
+      `Failed to fetch conversation ${conversationId}: ${result.error.message}`,
+      {
+        cause: result.error,
+      }
     );
   }
 
@@ -229,8 +256,11 @@ export async function getConversationWithMessages(
     .maybeSingle();
 
   if (conversationResult.error != null) {
-    throw new Error(
-      `Failed to fetch conversation ${conversationId}: ${conversationResult.error.message}`
+    throw new DatabaseError(
+      `Failed to fetch conversation ${conversationId}: ${conversationResult.error.message}`,
+      {
+        cause: conversationResult.error,
+      }
     );
   }
 
@@ -245,8 +275,11 @@ export async function getConversationWithMessages(
     .order("created_at", { ascending: true });
 
   if (messagesResult.error != null) {
-    throw new Error(
-      `Failed to fetch messages for conversation ${conversationId}: ${messagesResult.error.message}`
+    throw new DatabaseError(
+      `Failed to fetch messages for conversation ${conversationId}: ${messagesResult.error.message}`,
+      {
+        cause: messagesResult.error,
+      }
     );
   }
 

@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { ObservabilityContext } from "@/src/lib/observability";
+import { createObservabilityContext } from "@/src/lib/observability";
 import type {
   OutboundDeliveryDecision,
   ResolvedOutboundMode,
@@ -11,6 +13,7 @@ export interface DispatchOutboundTransportInput {
   conversationId: string;
   outboundMessageId: string;
   content: string;
+  observability: ObservabilityContext;
   policy: ResponsePolicyEvaluation;
   resolvedOutboundMode: ResolvedOutboundMode;
   outboundDecision: OutboundDeliveryDecision;
@@ -22,6 +25,7 @@ export interface OutboundTransportDispatchResult {
   provider: "pending_live_wiring";
   detail: string;
   dispatchedAt: string;
+  observability: ObservabilityContext;
 }
 
 export async function dispatchOutboundTransport(
@@ -36,5 +40,6 @@ export async function dispatchOutboundTransport(
     detail:
       "Outbound transport wiring remains deferred until the live GHL integration shift.",
     dispatchedAt: new Date().toISOString(),
+    observability: createObservabilityContext(input.observability),
   };
 }

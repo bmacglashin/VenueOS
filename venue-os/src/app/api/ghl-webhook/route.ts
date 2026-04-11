@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 
 import type { Json } from "@/src/lib/db/supabase";
+import {
+  applyObservabilityHeaders,
+  classifyOperationalError,
+  createObservabilityContextFromHeaders,
+  getOperationalErrorMessage,
+  type ObservabilityContext,
+  type OperationalErrorType,
+} from "@/src/lib/observability";
 import { insertAuditLog } from "@/src/services/audit-logs";
 import { orchestrateConversationTurn } from "@/src/services/conversation-orchestrator";
 import {
@@ -32,9 +40,8 @@ interface ExtractedWebhookFields {
 }
 
 const WEBHOOK_SOURCE = "ghl_webhook_internal";
-const INVALID_JSON_EVENT = "ghl_webhook.invalid_json";
-const MESSAGE_MISSING_EVENT = "ghl_webhook.message_missing";
-const PROCESSING_FAILED_EVENT = "ghl_webhook.processing_failed";
+const INBOUND_RECEIVED_EVENT = "inbound.received";
+const ORCHESTRATION_HALTED_EVENT = "orchestration.halted";
 
 const LOCATION_ID_PATHS: readonly FieldPath[] = [
   ["locationId"],
@@ -236,23 +243,24 @@ function buildWebhookDebugPayload(input: {
   rawBody: string;
   payload: unknown;
   extracted: ExtractedWebhookFields;
+  observability: ObservabilityContext;
   reason: string;
   parseError?: string | null;
   conversationId?: string | null;
+  errorType?: OperationalErrorType | null;
   error?: unknown;
 }): JsonObject {
   return {
     source: WEBHOOK_SOURCE,
+    observability: input.observability,
     reason: input.reason,
     rawBody: input.rawBody,
     rawPayload: toJsonValue(input.payload),
     extracted: serializeExtractedFields(input.extracted),
     conversationId: input.conversationId ?? null,
     parseError: input.parseError ?? null,
-    error:
-      input.error instanceof Error
-        ? input.error.message
-        : normalizeText(input.error) ?? null,
+    errorType: input.errorType ?? null,
+    error: input.error != null ? getOperationalErrorMessage(input.error) : null,
   };
 }
 
@@ -283,8 +291,14 @@ async function parseWebhookRequest(req: Request): Promise<ParsedWebhookRequest> 
   }
 }
 
-function logWebhookReceipt(input: ParsedWebhookRequest) {
+function logWebhookReceipt(
+  input: ParsedWebhookRequest,
+  observability: ObservabilityContext
+) {
   console.log("Received internal GHL webhook.", {
+    eventType: INBOUND_RECEIVED_EVENT,
+    requestId: observability.requestId,
+    traceId: observability.traceId,
     source: WEBHOOK_SOURCE,
     rawBody: input.rawBody,
     parseError: input.parseError,
@@ -295,20 +309,27 @@ function logWebhookReceipt(input: ParsedWebhookRequest) {
 function buildAcceptedResponse(input: {
   accepted: boolean;
   message: string;
+  observability: ObservabilityContext;
   conversationId?: string | null;
   inboundMessageId?: string | null;
   aiDraftMessageId?: string | null;
+  errorType?: OperationalErrorType | null;
 }) {
+  const headers = applyObservabilityHeaders(new Headers(), input.observability);
+
   return NextResponse.json(
     {
       success: true,
       accepted: input.accepted,
       message: input.message,
+      requestId: input.observability.requestId,
+      traceId: input.observability.traceId,
+      errorType: input.errorType ?? null,
       conversationId: input.conversationId ?? null,
       inboundMessageId: input.inboundMessageId ?? null,
       aiDraftMessageId: input.aiDraftMessageId ?? null,
     },
-    { status: 200 }
+    { status: 200, headers }
   );
 }
 
@@ -320,6 +341,9 @@ async function recordAuditLogSafely(input: Parameters<typeof insertAuditLog>[0])
       source: WEBHOOK_SOURCE,
       tenantId: input.tenantId,
       eventType: input.eventType,
+      requestId: input.requestId,
+      traceId: input.traceId,
+      errorType: input.errorType,
       error,
     });
   }
@@ -334,15 +358,19 @@ function shouldResolveConversation(fields: ExtractedWebhookFields): boolean {
 }
 
 export async function POST(req: Request) {
+  const observability = createObservabilityContextFromHeaders(req.headers);
   const parsedRequest = await parseWebhookRequest(req);
   const extracted = extractWebhookFields(parsedRequest.payload);
 
-  logWebhookReceipt(parsedRequest);
+  logWebhookReceipt(parsedRequest, observability);
 
   if (parsedRequest.parseError != null) {
     console.warn("Ignoring internal GHL webhook with invalid JSON.", {
       source: WEBHOOK_SOURCE,
-      eventType: INVALID_JSON_EVENT,
+      eventType: INBOUND_RECEIVED_EVENT,
+      requestId: observability.requestId,
+      traceId: observability.traceId,
+      errorType: "validation_error",
       rawBody: parsedRequest.rawBody,
       parseError: parsedRequest.parseError,
     });
@@ -350,6 +378,8 @@ export async function POST(req: Request) {
     return buildAcceptedResponse({
       accepted: false,
       message: "Webhook received but JSON could not be parsed.",
+      observability,
+      errorType: "validation_error",
     });
   }
 
@@ -368,11 +398,15 @@ export async function POST(req: Request) {
     if (tenant == null) {
       console.warn("Ignoring internal GHL webhook without a resolved tenant.", {
         source: WEBHOOK_SOURCE,
+        eventType: INBOUND_RECEIVED_EVENT,
+        requestId: observability.requestId,
+        traceId: observability.traceId,
         locationId: extracted.locationId.value,
         debug: buildWebhookDebugPayload({
           rawBody: parsedRequest.rawBody,
           payload: parsedRequest.payload,
           extracted,
+          observability,
           reason: "tenant_unresolved",
         }),
       });
@@ -381,6 +415,7 @@ export async function POST(req: Request) {
         accepted: false,
         message:
           "Webhook received but no tenant could be resolved from the payload.",
+        observability,
       });
     }
 
@@ -396,24 +431,36 @@ export async function POST(req: Request) {
       conversationId = conversation.id;
     }
 
-    if (extracted.messageBody.value == null) {
-      await recordAuditLogSafely({
-        tenantId,
-        eventType: MESSAGE_MISSING_EVENT,
-        status: "accepted",
-        payload: buildWebhookDebugPayload({
-          rawBody: parsedRequest.rawBody,
-          payload: parsedRequest.payload,
-          extracted,
-          reason: "message_body_missing",
-          conversationId,
-        }),
-      });
+    await recordAuditLogSafely({
+      tenantId,
+      eventType: INBOUND_RECEIVED_EVENT,
+      requestId: observability.requestId,
+      traceId: observability.traceId,
+      status: extracted.messageBody.value == null ? "rejected" : "accepted",
+      errorType:
+        extracted.messageBody.value == null ? "validation_error" : null,
+      payload: buildWebhookDebugPayload({
+        rawBody: parsedRequest.rawBody,
+        payload: parsedRequest.payload,
+        extracted,
+        observability,
+        reason:
+          extracted.messageBody.value == null
+            ? "message_body_missing"
+            : "accepted",
+        conversationId,
+        errorType:
+          extracted.messageBody.value == null ? "validation_error" : null,
+      }),
+    });
 
+    if (extracted.messageBody.value == null) {
       return buildAcceptedResponse({
         accepted: false,
         message:
           "Webhook received, but no inbound message body was available to route.",
+        observability,
+        errorType: "validation_error",
         conversationId,
       });
     }
@@ -445,27 +492,36 @@ export async function POST(req: Request) {
           },
         },
       },
+      observability,
     });
 
     return buildAcceptedResponse({
       accepted: true,
       message: "Webhook processed through the internal orchestration loop.",
+      observability,
       conversationId: result.conversation.id,
       inboundMessageId: result.inboundMessage.id,
       aiDraftMessageId: result.aiDraftMessage.id,
     });
   } catch (error) {
+    const errorType = classifyOperationalError(error);
+
     if (!orchestrationStarted && tenantId != null) {
       await recordAuditLogSafely({
         tenantId,
-        eventType: PROCESSING_FAILED_EVENT,
-        status: "failed",
+        eventType: ORCHESTRATION_HALTED_EVENT,
+        requestId: observability.requestId,
+        traceId: observability.traceId,
+        status: errorType === "idempotency_drop" ? "dropped" : "failed",
+        errorType,
         payload: buildWebhookDebugPayload({
           rawBody: parsedRequest.rawBody,
           payload: parsedRequest.payload,
           extracted,
+          observability,
           reason: "pre_orchestration_failure",
           conversationId,
+          errorType,
           error,
         }),
       });
@@ -475,12 +531,20 @@ export async function POST(req: Request) {
       source: WEBHOOK_SOURCE,
       tenantId,
       conversationId,
+      requestId: observability.requestId,
+      traceId: observability.traceId,
+      errorType,
       error,
     });
 
     return buildAcceptedResponse({
-      accepted: false,
-      message: "Webhook received, but internal processing failed.",
+      accepted: errorType === "idempotency_drop",
+      message:
+        errorType === "idempotency_drop"
+          ? "Duplicate webhook message ignored because it was already processed."
+          : "Webhook received, but internal processing failed.",
+      observability,
+      errorType,
       conversationId,
     });
   }

@@ -162,6 +162,109 @@ function buildTimelineEntry(log: AuditLog): TimelineEntry {
   const operatorLabel = readString(operator?.label);
 
   switch (log.event_type) {
+    case "route.classified": {
+      const route = readJsonObject(payload.route);
+      const routeCategory = readString(route?.category);
+
+      return {
+        label: "Route classified",
+        summary:
+          routeCategory == null
+            ? "The inbound message completed routing."
+            : `Route classified as ${formatLabel(routeCategory)}.`,
+        policyDecision: null,
+        policyReasons: [],
+        note: null,
+        operatorDetail: null,
+        sendResult: null,
+        versionDetail: null,
+      };
+    }
+    case "policy.evaluated":
+      return {
+        label: "Policy evaluated",
+        summary:
+          policyDecision == null
+            ? "Response policy finished evaluating the draft."
+            : `Policy resolved as ${formatLabel(policyDecision)}.`,
+        policyDecision,
+        policyReasons,
+        note: null,
+        operatorDetail: null,
+        sendResult: null,
+        versionDetail: null,
+      };
+    case "response.drafted": {
+      const outboundDelivery = readJsonObject(payload.outboundDelivery);
+      const action = readString(outboundDelivery?.action);
+      const route = readJsonObject(payload.route);
+      const routeCategory = readString(route?.category);
+
+      return {
+        label:
+          action === "queue"
+            ? "AI draft queued for review"
+            : action === "block"
+              ? "Draft blocked"
+              : "AI draft generated",
+        summary:
+          routeCategory == null
+            ? "The response engine created a candidate draft."
+            : `Route classified as ${formatLabel(routeCategory)}.`,
+        policyDecision,
+        policyReasons,
+        note: null,
+        operatorDetail: null,
+        sendResult,
+        versionDetail: nextVersion == null ? null : `Created ${nextVersion}.`,
+      };
+    }
+    case "review.queued":
+      return {
+        label: "Queued for operator review",
+        summary: "The draft was held for Mission Control review before send.",
+        policyDecision,
+        policyReasons,
+        note: null,
+        operatorDetail: null,
+        sendResult: null,
+        versionDetail: nextVersion == null ? null : `Current ${nextVersion}.`,
+      };
+    case "outbound.sent":
+      return {
+        label: "Outbound transport attempted",
+        summary: "The system attempted the outbound transport step.",
+        policyDecision,
+        policyReasons,
+        note: null,
+        operatorDetail: null,
+        sendResult,
+        versionDetail: nextVersion == null ? null : `Current ${nextVersion}.`,
+      };
+    case "outbound.failed":
+      return {
+        label: "Outbound transport failed",
+        summary: readString(payload.error) ?? "The outbound transport step failed.",
+        policyDecision,
+        policyReasons,
+        note: null,
+        operatorDetail: null,
+        sendResult,
+        versionDetail: nextVersion == null ? null : `Current ${nextVersion}.`,
+      };
+    case "orchestration.halted":
+      return {
+        label: "Orchestration halted",
+        summary:
+          readString(payload.error) ??
+          "The request stopped before the turn completed.",
+        policyDecision: null,
+        policyReasons: [],
+        note: null,
+        operatorDetail: null,
+        sendResult: null,
+        versionDetail: null,
+      };
     case "conversation_turn.persisted": {
       const outboundDelivery = readJsonObject(payload.outboundDelivery);
       const action = readString(outboundDelivery?.action);
@@ -354,10 +457,24 @@ export function AuditLogPanel({ logs }: AuditLogPanelProps) {
                                 {entry.summary}
                               </p>
                             ) : null}
+                            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-zinc-400">
+                              <span className="rounded-full border border-zinc-700 px-2 py-0.5">
+                                {log.event_type}
+                              </span>
+                              {log.error_type != null ? (
+                                <span className="rounded-full border border-rose-500/40 px-2 py-0.5 text-rose-200">
+                                  {log.error_type}
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
                           <span className="font-mono text-xs text-zinc-500">
                             {formatTimestamp(log.created_at)}
                           </span>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-3 font-mono text-[11px] text-zinc-500">
+                          <span>request {log.request_id}</span>
+                          <span>trace {log.trace_id}</span>
                         </div>
                         {entry.versionDetail != null ? (
                           <p className="mt-3 text-xs leading-5 text-zinc-500">

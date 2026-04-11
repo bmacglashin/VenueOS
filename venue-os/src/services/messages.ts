@@ -1,6 +1,10 @@
 import "server-only";
 
 import type { Database, Json } from "@/src/lib/db/supabase";
+import {
+  DatabaseError,
+  IdempotencyDropError,
+} from "@/src/lib/observability";
 import { createSupabaseAdminClient } from "@/src/lib/db/admin";
 import type {
   ResponsePolicyDecision,
@@ -34,6 +38,10 @@ function toJsonValue(value: unknown): Json {
 export interface FetchRecentMessagesInput {
   conversationId: string;
   limit?: number;
+}
+
+export interface FindMessageByGhlMessageIdInput {
+  ghlMessageId: string;
 }
 
 export interface UpdateMessageInput {
@@ -70,7 +78,24 @@ export async function insertMessage(input: InsertMessageInput): Promise<Message>
     .single();
 
   if (result.error != null || result.data == null) {
-    throw new Error(`Failed to insert message: ${result.error?.message ?? "no data returned"}`);
+    if (
+      result.error?.code === "23505" &&
+      result.error.message.includes("messages_ghl_message_id_key")
+    ) {
+      throw new IdempotencyDropError(
+        `Message with GHL id ${input.ghlMessageId ?? "unknown"} was already recorded.`,
+        {
+          cause: result.error,
+        }
+      );
+    }
+
+    throw new DatabaseError(
+      `Failed to insert message: ${result.error?.message ?? "no data returned"}`,
+      {
+        cause: result.error,
+      }
+    );
   }
 
   return result.data;
@@ -107,7 +132,35 @@ export async function fetchRecentMessages(
     .limit(input.limit ?? 20);
 
   if (result.error != null) {
-    throw new Error(`Failed to fetch recent messages: ${result.error.message}`);
+    throw new DatabaseError(
+      `Failed to fetch recent messages: ${result.error.message}`,
+      {
+        cause: result.error,
+      }
+    );
+  }
+
+  return result.data;
+}
+
+export async function findMessageByGhlMessageId(
+  input: FindMessageByGhlMessageIdInput
+): Promise<Message | null> {
+  const supabase = createSupabaseAdminClient();
+
+  const result = await supabase
+    .from("messages")
+    .select("*")
+    .eq("ghl_message_id", input.ghlMessageId)
+    .maybeSingle();
+
+  if (result.error != null) {
+    throw new DatabaseError(
+      `Failed to fetch message by GHL message id: ${result.error.message}`,
+      {
+        cause: result.error,
+      }
+    );
   }
 
   return result.data;
@@ -125,8 +178,11 @@ export async function listConversationMessages(
     .order("created_at", { ascending: true });
 
   if (result.error != null) {
-    throw new Error(
-      `Failed to list messages for conversation ${conversationId}: ${result.error.message}`
+    throw new DatabaseError(
+      `Failed to list messages for conversation ${conversationId}: ${result.error.message}`,
+      {
+        cause: result.error,
+      }
     );
   }
 
@@ -143,7 +199,9 @@ export async function getMessageById(messageId: string): Promise<Message | null>
     .maybeSingle();
 
   if (result.error != null) {
-    throw new Error(`Failed to fetch message ${messageId}: ${result.error.message}`);
+    throw new DatabaseError(`Failed to fetch message ${messageId}: ${result.error.message}`, {
+      cause: result.error,
+    });
   }
 
   return result.data;
@@ -189,8 +247,11 @@ export async function updateMessage(input: UpdateMessageInput): Promise<Message>
     .single();
 
   if (result.error != null || result.data == null) {
-    throw new Error(
-      `Failed to update message ${input.messageId}: ${result.error?.message ?? "no data returned"}`
+    throw new DatabaseError(
+      `Failed to update message ${input.messageId}: ${result.error?.message ?? "no data returned"}`,
+      {
+        cause: result.error,
+      }
     );
   }
 

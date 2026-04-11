@@ -134,6 +134,9 @@ export type Database = {
           id: string;
           tenant_id: string;
           event_type: string;
+          request_id: string;
+          trace_id: string;
+          error_type: string | null;
           payload: Json;
           status: string;
           created_at: string;
@@ -143,6 +146,9 @@ export type Database = {
           id?: string;
           tenant_id: string;
           event_type: string;
+          request_id: string;
+          trace_id: string;
+          error_type?: string | null;
           payload?: Json;
           status?: string;
           created_at?: string;
@@ -152,6 +158,9 @@ export type Database = {
           id?: string;
           tenant_id?: string;
           event_type?: string;
+          request_id?: string;
+          trace_id?: string;
+          error_type?: string | null;
           payload?: Json;
           status?: string;
           created_at?: string;

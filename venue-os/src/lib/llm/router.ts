@@ -1,5 +1,10 @@
 import "server-only";
 
+import {
+  createObservabilityContext,
+  type ObservabilityContext,
+  ValidationError,
+} from "@/src/lib/observability";
 import { getVenueKnowledge } from "./knowledge";
 import {
   inboundRouteClassificationSchema,
@@ -41,6 +46,7 @@ export interface RouteInboundMessageInput {
   message: string;
   venue: RouteInboundVenueContext;
   conversation: RouteInboundConversationContext;
+  observability?: ObservabilityContext;
   inboundMessageId?: string;
   receivedAt?: Date | string;
 }
@@ -60,6 +66,7 @@ export interface RouteInboundMessagePersistenceMetadata {
 }
 
 export interface RouteInboundMessageMetadata {
+  observability: ObservabilityContext;
   knowledgeSource: "getVenueKnowledge";
   knowledgeContextCharacters: number;
   recentMessageCount: number;
@@ -84,7 +91,7 @@ function requireNonEmpty(value: string, fieldName: string): string {
   const trimmed = value.trim();
 
   if (trimmed.length === 0) {
-    throw new Error(`${fieldName} is required.`);
+    throw new ValidationError(`${fieldName} is required.`);
   }
 
   return trimmed;
@@ -209,6 +216,7 @@ function buildPremiumHoldingReply(venueName: string): string {
 function buildRoutingMetadata(input: {
   venue: RouteInboundVenueContext;
   conversation: RouteInboundConversationContext;
+  observability?: ObservabilityContext;
   inboundMessageId?: string;
   receivedAt?: Date | string;
   classification: InboundRouteClassification;
@@ -220,6 +228,7 @@ function buildRoutingMetadata(input: {
   responseMetadata: VenueModelMetadata | null;
 }): RouteInboundMessageMetadata {
   return {
+    observability: createObservabilityContext(input.observability),
     knowledgeSource: "getVenueKnowledge",
     knowledgeContextCharacters: input.knowledge.length,
     recentMessageCount: input.recentMessageCount,
@@ -276,6 +285,7 @@ export async function routeInboundMessage(
       metadata: buildRoutingMetadata({
         venue: { ...input.venue, venueName },
         conversation: input.conversation,
+        observability: input.observability,
         inboundMessageId: input.inboundMessageId,
         receivedAt: input.receivedAt,
         classification,
@@ -303,6 +313,7 @@ export async function routeInboundMessage(
     metadata: buildRoutingMetadata({
       venue: { ...input.venue, venueName },
       conversation: input.conversation,
+      observability: input.observability,
       inboundMessageId: input.inboundMessageId,
       receivedAt: input.receivedAt,
       classification,

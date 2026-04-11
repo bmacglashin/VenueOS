@@ -5,6 +5,11 @@ import type {
   RouteInboundMessageMetadata,
 } from "@/src/lib/llm/router";
 import { routeInboundMessage } from "@/src/lib/llm/router";
+import {
+  createObservabilityContext,
+  type ObservabilityContext,
+  ValidationError,
+} from "@/src/lib/observability";
 import type { Database, Json } from "@/src/lib/db/supabase";
 import type { VenueMessageRole, VenueRecentMessage } from "@/src/services/ai";
 import { insertAuditLog } from "@/src/services/audit-logs";
@@ -22,6 +27,7 @@ import {
 } from "@/src/services/draft-history";
 import {
   fetchRecentMessages,
+  findMessageByGhlMessageId,
   insertInboundMessage,
   insertOutboundMessage,
   updateMessage,
@@ -213,6 +219,7 @@ function buildRegeneratedDraftMetadata(input: {
   recentMessages: readonly Message[];
   inboundMessageId: string;
   conversationId: string;
+  observability: ObservabilityContext;
   safeSendClassification: SafeSendClassifierResult;
   policy: ResponsePolicyEvaluation;
   resolvedOutboundMode: ResolvedOutboundMode;
@@ -222,6 +229,7 @@ function buildRegeneratedDraftMetadata(input: {
   return buildDraftVersionMetadata({
     existingMetadata: {
       kind: "ai_draft",
+      observability: input.observability,
       route: toJsonObject(input.classification),
       responsePolicy: toJsonObject({
         decision: input.policy.decision,
@@ -229,6 +237,7 @@ function buildRegeneratedDraftMetadata(input: {
         transportAllowed: input.policy.transportAllowed,
         evaluatedAt: input.policy.evaluatedAt,
         routeConfidenceThreshold: input.policy.routeConfidenceThreshold,
+        observability: input.policy.observability,
       }),
       safeSendClassifier: toJsonObject(input.safeSendClassification),
       outboundMode: toJsonObject(input.resolvedOutboundMode),
@@ -267,13 +276,13 @@ async function resolveConversationRecord(input: ConversationTurnRequest) {
     const conversation = await getConversationById(input.conversation.id);
 
     if (conversation == null) {
-      throw new Error(
+      throw new ValidationError(
         `Conversation ${input.conversation.id} was not found for orchestration.`
       );
     }
 
     if (conversation.tenant_id !== input.tenantId) {
-      throw new Error(
+      throw new ValidationError(
         `Conversation ${input.conversation.id} does not belong to tenant ${input.tenantId}.`
       );
     }
@@ -295,6 +304,7 @@ function buildConversationOrchestratorDependencies(
   return {
     resolveConversation: resolveConversationRecord,
     fetchRecentMessages,
+    findMessageByGhlMessageId,
     routeInboundMessage,
     insertInboundMessage,
     insertOutboundMessage,
@@ -320,9 +330,11 @@ export interface RegenerateConversationDraftInput {
   tenantId: string;
   conversationId: string;
   baseDraftMessageId: string;
+  observability?: ObservabilityContext;
 }
 
 export interface RegenerateConversationDraftResult {
+  observability: ObservabilityContext;
   conversation: Conversation;
   tenant: Tenant;
   sourceInboundMessage: Message;
@@ -340,6 +352,7 @@ export interface RegenerateConversationDraftResult {
 export async function regenerateConversationDraft(
   input: RegenerateConversationDraftInput
 ): Promise<RegenerateConversationDraftResult> {
+  const observability = createObservabilityContext(input.observability);
   const detail = await getConversationWithMessages(input.conversationId);
 
   if (detail == null) {
@@ -400,6 +413,7 @@ export async function regenerateConversationDraft(
       id: detail.conversation.id,
       recentMessages: toRouterRecentMessages(recentMessages),
     },
+    observability,
     receivedAt: sourceInboundMessage.created_at,
   });
   const safeSendClassification = classifyCandidateResponseForSafeSend({
@@ -415,6 +429,7 @@ export async function regenerateConversationDraft(
     }),
     {
       now: new Date(),
+      observability,
     }
   );
   const resolvedOutboundMode = await getResolvedOutboundModeForTenant(tenant.id);
@@ -442,6 +457,7 @@ export async function regenerateConversationDraft(
       recentMessages,
       inboundMessageId: sourceInboundMessage.id,
       conversationId: detail.conversation.id,
+      observability,
       safeSendClassification,
       policy,
       resolvedOutboundMode,
@@ -461,6 +477,8 @@ export async function regenerateConversationDraft(
   await insertAuditLog({
     tenantId: tenant.id,
     eventType: OPERATOR_REGENERATE_EVENT,
+    requestId: observability.requestId,
+    traceId: observability.traceId,
     status: getAuditLogStatus(outboundDecision),
     payload: toJsonValue({
       conversationId: detail.conversation.id,
@@ -486,6 +504,7 @@ export async function regenerateConversationDraft(
   });
 
   return {
+    observability,
     conversation: detail.conversation,
     tenant,
     sourceInboundMessage,
@@ -495,6 +514,7 @@ export async function regenerateConversationDraft(
     aiReply: routedTurn.aiReply,
     metadata: {
       ...routedTurn.metadata,
+      observability,
       persistence: {
         ...routedTurn.metadata.persistence,
         conversationId: detail.conversation.id,

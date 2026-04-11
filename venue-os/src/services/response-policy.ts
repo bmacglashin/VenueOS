@@ -1,4 +1,6 @@
 import type { InboundRouteCategory } from "@/src/lib/llm/route-contract";
+import type { ObservabilityContext } from "@/src/lib/observability";
+import { createObservabilityContext } from "@/src/lib/observability";
 
 export const RESPONSE_POLICY_DECISIONS = [
   "safe_to_send",
@@ -65,6 +67,7 @@ export interface ResponsePolicyEvaluation {
   transportAllowed: boolean;
   routeConfidenceThreshold: number;
   evaluatedAt: string;
+  observability: ObservabilityContext;
 }
 
 function isVerifiedFactState(
@@ -133,10 +136,11 @@ function isRouteConfidenceAvailable(
 
 export function evaluateResponsePolicy(
   input: EvaluateResponsePolicyInput,
-  options: { now?: Date } = {}
+  options: { now?: Date; observability?: ObservabilityContext } = {}
 ): ResponsePolicyEvaluation {
   const reasons: ResponsePolicyReason[] = [];
   const evaluatedAt = (options.now ?? new Date()).toISOString();
+  const observability = createObservabilityContext(options.observability);
   const normalizedRouteConfidence =
     typeof input.routeConfidence === "number" &&
     Number.isFinite(input.routeConfidence)
@@ -190,5 +194,6 @@ export function evaluateResponsePolicy(
     transportAllowed: decision === "safe_to_send",
     routeConfidenceThreshold: SAFE_SEND_ROUTE_CONFIDENCE_THRESHOLD,
     evaluatedAt,
+    observability,
   };
 }
