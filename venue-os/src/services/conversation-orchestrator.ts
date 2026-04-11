@@ -229,7 +229,7 @@ function buildRegeneratedDraftMetadata(input: {
   return buildDraftVersionMetadata({
     existingMetadata: {
       kind: "ai_draft",
-      observability: input.observability,
+      observability: toJsonObject(input.observability),
       route: toJsonObject(input.classification),
       responsePolicy: toJsonObject({
         decision: input.policy.decision,
@@ -237,7 +237,7 @@ function buildRegeneratedDraftMetadata(input: {
         transportAllowed: input.policy.transportAllowed,
         evaluatedAt: input.policy.evaluatedAt,
         routeConfidenceThreshold: input.policy.routeConfidenceThreshold,
-        observability: input.policy.observability,
+        observability: toJsonObject(input.policy.observability),
       }),
       safeSendClassifier: toJsonObject(input.safeSendClassification),
       outboundMode: toJsonObject(input.resolvedOutboundMode),

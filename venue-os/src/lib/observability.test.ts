@@ -78,6 +78,16 @@ describe("classifyOperationalError", () => {
     assert.equal(classifyOperationalError(duplicateError), "idempotency_drop");
   });
 
+  it("recognizes duplicate webhook claim violations as idempotency drops", () => {
+    const duplicateError = {
+      code: "23505",
+      message:
+        'duplicate key value violates unique constraint "processed_webhook_events_source_idempotency_key_key"',
+    };
+
+    assert.equal(classifyOperationalError(duplicateError), "idempotency_drop");
+  });
+
   it("falls back to unknown_error when nothing stronger matches", () => {
     assert.equal(
       classifyOperationalError(new Error("unexpected boom")),

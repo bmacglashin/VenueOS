@@ -51,7 +51,9 @@ const SESSION_MEMORY_LIMIT = 5;
 const ROUTE_CLASSIFIED_EVENT = "route.classified";
 const POLICY_EVALUATED_EVENT = "policy.evaluated";
 const RESPONSE_DRAFTED_EVENT = "response.drafted";
+const IDEMPOTENCY_DROPPED_EVENT = "idempotency.dropped";
 const REVIEW_QUEUED_EVENT = "review.queued";
+const OUTBOUND_BLOCKED_EVENT = "outbound.blocked";
 const OUTBOUND_SENT_EVENT = "outbound.sent";
 const OUTBOUND_FAILED_EVENT = "outbound.failed";
 const ORCHESTRATION_HALTED_EVENT = "orchestration.halted";
@@ -179,7 +181,7 @@ function buildInboundMessageMetadata(
 ): Json {
   return {
     ...(input.inbound.metadata ?? {}),
-    observability,
+    observability: toJsonObject(observability),
     sessionMemory: {
       strategy: "last_messages",
       limit: SESSION_MEMORY_LIMIT,
@@ -214,7 +216,7 @@ function buildAiDraftMetadata(input: {
   return buildDraftVersionMetadata({
     existingMetadata: {
       kind: "ai_draft",
-      observability: input.observability,
+      observability: toJsonObject(input.observability),
       route: toJsonObject(input.classification),
       responsePolicy: toJsonObject({
         decision: input.policy.decision,
@@ -222,7 +224,7 @@ function buildAiDraftMetadata(input: {
         transportAllowed: input.policy.transportAllowed,
         evaluatedAt: input.policy.evaluatedAt,
         routeConfidenceThreshold: input.policy.routeConfidenceThreshold,
-        observability: input.policy.observability,
+        observability: toJsonObject(input.policy.observability),
       }),
       safeSendClassifier: toJsonObject(input.safeSendClassification),
       outboundMode: toJsonObject(input.resolvedOutboundMode),
@@ -346,7 +348,10 @@ export function createConversationOrchestrator(
     try {
       await recordAuditEvent({
         tenantId: input.tenantId,
-        eventType: ORCHESTRATION_HALTED_EVENT,
+        eventType:
+          errorType === "idempotency_drop"
+            ? IDEMPOTENCY_DROPPED_EVENT
+            : ORCHESTRATION_HALTED_EVENT,
         observability: input.observability,
         status: errorType === "idempotency_drop" ? "dropped" : "failed",
         errorType,
@@ -537,6 +542,24 @@ export function createConversationOrchestrator(
           eventType: REVIEW_QUEUED_EVENT,
           observability,
           status: "review_required",
+          payload: toJsonValue({
+            conversationId: conversation.id,
+            aiDraftMessageId: aiDraftMessage.id,
+            responsePolicy: policy,
+            outboundDelivery: {
+              action: outboundDecision.action,
+              reasons: outboundDecision.reasons,
+            },
+          }),
+        });
+      }
+
+      if (outboundDecision.action === "block") {
+        await recordAuditEvent({
+          tenantId: input.tenantId,
+          eventType: OUTBOUND_BLOCKED_EVENT,
+          observability,
+          status: "blocked",
           payload: toJsonValue({
             conversationId: conversation.id,
             aiDraftMessageId: aiDraftMessage.id,

@@ -15,6 +15,11 @@ type Conversation = Database["public"]["Tables"]["conversations"]["Row"];
 type Tenant = Database["public"]["Tables"]["venue_tenants"]["Row"];
 type Message = Database["public"]["Tables"]["messages"]["Row"];
 
+const OBSERVABILITY = {
+  requestId: "req_operator_123",
+  traceId: "trace_operator_456",
+};
+
 function makeTenant(overrides: Partial<Tenant> = {}): Tenant {
   return {
     id: "00000000-0000-0000-0000-000000000001",
@@ -207,6 +212,7 @@ describe("createOperatorReviewService", () => {
           provider: "pending_live_wiring" as const,
           detail: "test transport",
           dispatchedAt: "2026-04-10T16:01:00.000Z",
+          observability: OBSERVABILITY,
         };
       },
       classifyCandidateResponseForSafeSend,
@@ -285,7 +291,9 @@ describe("createOperatorReviewService", () => {
           policy_decision:
             (input.policyDecision as Message["policy_decision"]) ?? "safe_to_send",
           policy_reasons:
-            (input.policyReasons as Message["policy_reasons"]) ?? [],
+            (JSON.parse(
+              JSON.stringify(input.policyReasons ?? [])
+            ) as Message["policy_reasons"]) ?? [],
           policy_evaluated_at:
             (input.policyEvaluatedAt as Message["policy_evaluated_at"]) ??
             "2026-04-10T16:02:00.000Z",
@@ -310,7 +318,9 @@ describe("createOperatorReviewService", () => {
           policy_decision:
             (input.policyDecision as Message["policy_decision"]) ?? null,
           policy_reasons:
-            (input.policyReasons as Message["policy_reasons"]) ?? [],
+            (JSON.parse(
+              JSON.stringify(input.policyReasons ?? [])
+            ) as Message["policy_reasons"]) ?? [],
           policy_evaluated_at:
             (input.policyEvaluatedAt as Message["policy_evaluated_at"]) ?? null,
         });
@@ -332,6 +342,7 @@ describe("createOperatorReviewService", () => {
         provider: "pending_live_wiring" as const,
         detail: "edited transport",
         dispatchedAt: "2026-04-10T16:02:00.000Z",
+        observability: OBSERVABILITY,
       }),
       classifyCandidateResponseForSafeSend,
       evaluateResponsePolicy,
@@ -434,6 +445,10 @@ describe("createOperatorReviewService", () => {
           tenantId: string;
           conversationId: string;
           baseDraftMessageId: string;
+          observability?: {
+            requestId: string;
+            traceId: string;
+          };
         }
       | undefined;
 
@@ -463,6 +478,7 @@ describe("createOperatorReviewService", () => {
         regenerateInput = input;
 
         return {
+          observability: OBSERVABILITY,
           conversation,
           tenant,
           sourceInboundMessage: inboundMessage,
@@ -476,6 +492,7 @@ describe("createOperatorReviewService", () => {
           },
           aiReply: queuedDraft.content,
           metadata: {
+            observability: OBSERVABILITY,
             knowledgeSource: "getVenueKnowledge",
             knowledgeContextCharacters: 120,
             recentMessageCount: 1,
@@ -520,6 +537,7 @@ describe("createOperatorReviewService", () => {
             transportAllowed: true,
             routeConfidenceThreshold: 0.75,
             evaluatedAt: "2026-04-10T16:04:00.000Z",
+            observability: OBSERVABILITY,
           },
           resolvedOutboundMode: resolveOutboundMode({
             globalMode: "enabled",

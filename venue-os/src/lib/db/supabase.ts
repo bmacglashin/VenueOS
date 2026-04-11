@@ -168,6 +168,54 @@ export type Database = {
         };
         Relationships: [];
       };
+      processed_webhook_events: {
+        Row: {
+          id: string;
+          source: string;
+          idempotency_key: string;
+          tenant_id: string | null;
+          status: string;
+          upstream_event_id: string | null;
+          upstream_message_id: string | null;
+          request_id: string;
+          trace_id: string;
+          payload: Json;
+          response_payload: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          source: string;
+          idempotency_key: string;
+          tenant_id?: string | null;
+          status?: string;
+          upstream_event_id?: string | null;
+          upstream_message_id?: string | null;
+          request_id: string;
+          trace_id: string;
+          payload?: Json;
+          response_payload?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          source?: string;
+          idempotency_key?: string;
+          tenant_id?: string | null;
+          status?: string;
+          upstream_event_id?: string | null;
+          upstream_message_id?: string | null;
+          request_id?: string;
+          trace_id?: string;
+          payload?: Json;
+          response_payload?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       knowledge_sources: {
         Row: {
           id: string;

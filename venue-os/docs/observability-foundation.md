@@ -14,10 +14,12 @@ Shift 12D.1 standardizes how Venue OS names operational events, correlates reque
 Audit log rows now use a consistent dotted event vocabulary:
 
 - `inbound.received`
+- `idempotency.dropped`
 - `route.classified`
 - `policy.evaluated`
 - `response.drafted`
 - `review.queued`
+- `outbound.blocked`
 - `outbound.sent`
 - `outbound.failed`
 - `orchestration.halted`
@@ -45,5 +47,7 @@ Operational errors are intentionally separate from business-policy reasons such 
 ## Storage and visibility
 
 - Audit logs persist the correlation IDs and error taxonomy in dedicated columns.
+- Processed webhook delivery keys persist in `processed_webhook_events` with a uniqueness guarantee on `(source, idempotency_key)`.
 - Mission Control surfaces request IDs, trace IDs, and error types directly in the audit log panel.
 - Message metadata for inbound and drafted outbound records also includes the observability context for turn-level inspection.
+- `/api/health` exposes lightweight readiness checks, and `/api/ops/status` reads launch counters from the shared audit trail.

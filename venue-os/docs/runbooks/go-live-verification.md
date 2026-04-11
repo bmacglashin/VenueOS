@@ -17,19 +17,52 @@ Precedence:
 ## Pre-launch checks
 
 1. Confirm the deploy has `OUTBOUND_MODE=review_only` before any live traffic reaches the app.
-2. Run `npm test` and confirm the outbound precedence and suppression tests pass.
-3. Apply the latest Supabase migrations, including `0003_outbound_mode_controls.sql`.
-4. Verify Mission Control loads and shows the expected outbound mode banner for the target tenant.
-5. Spot-check at least one recent conversation and confirm the draft panel shows a policy decision plus an outbound action badge.
-6. Confirm any tenant-specific override values in `venue_tenants.outbound_mode_override` are intentional and documented for launch day.
+2. Set `OPS_STATUS_TOKEN` for the environment that will expose `/api/ops/status`.
+3. Run `npm test` and confirm the outbound precedence, idempotency, and endpoint tests pass.
+4. Apply the latest Supabase migrations, including `0005_webhook_idempotency_ops.sql`.
+5. Verify `GET /api/health` returns `200` with `"ready": true`.
+6. Verify `GET /api/ops/status` returns `200` when called with the shared token.
+7. Verify Mission Control loads and shows the expected outbound mode banner for the target tenant.
+8. Spot-check at least one recent conversation and confirm the draft panel shows a policy decision plus an outbound action badge.
+9. Confirm any tenant-specific override values in `venue_tenants.outbound_mode_override` are intentional and documented for launch day.
 
 ## Launch-day checks
 
 1. Keep the global mode at `review_only` while the first live inbound turns are observed.
-2. Confirm new safe candidates appear in Mission Control as `Queue` rather than `Proceed`.
-3. Check audit logs for `conversation_turn.persisted` events and verify `outboundMode` plus `outboundDelivery` are present in the payload.
-4. Validate that no unexpected outbound transport attempts appear while the system remains in `review_only`.
-5. Reconfirm tenant overrides for any pilot tenants before switching global mode to `enabled`.
+2. Confirm `GET /api/health` stays green while traffic is flowing.
+3. Poll `GET /api/ops/status` and confirm `inboundReceived` is increasing with live traffic.
+4. Confirm `duplicateDropped` only increases when the provider retries the same delivery.
+5. Confirm new safe candidates appear in Mission Control as `Queue` rather than `Proceed`.
+6. Check audit logs for `review.queued`, `outbound.blocked`, `outbound.sent`, and `idempotency.dropped` events as traffic moves through the system.
+7. Validate that no unexpected outbound transport attempts appear while the system remains in `review_only`.
+8. Reconfirm tenant overrides for any pilot tenants before switching global mode to `enabled`.
+
+## Endpoint usage
+
+Health:
+
+```bash
+curl -sS "$APP_URL/api/health"
+```
+
+Ops counters:
+
+```bash
+curl -sS \
+  -H "Authorization: Bearer $OPS_STATUS_TOKEN" \
+  "$APP_URL/api/ops/status"
+```
+
+Expected fields:
+
+- `live`, `ready`, and `status` on `/api/health`
+- `counters.inboundReceived`
+- `counters.reviewQueued`
+- `counters.outboundSent`
+- `counters.outboundBlocked`
+- `counters.outboundFailed`
+- `counters.duplicateDropped`
+- `lastAuditLogAt`
 
 ## Kill-switch usage
 

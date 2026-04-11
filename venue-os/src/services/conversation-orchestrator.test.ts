@@ -515,6 +515,15 @@ describe("createConversationOrchestrator", () => {
       ["global_disabled"]
     );
     assert.equal(transportCalls, 0);
+    assert.deepEqual(
+      auditEvents.map((event) => event.eventType),
+      [
+        "route.classified",
+        "policy.evaluated",
+        "response.drafted",
+        "outbound.blocked",
+      ]
+    );
     assert.ok(
       auditEvents.every(
         (event) =>
@@ -538,6 +547,85 @@ describe("createConversationOrchestrator", () => {
       ),
       ["global_disabled"]
     );
+  });
+
+  it("records idempotency drops as a dedicated audit event", async () => {
+    const { createConversationOrchestrator } = await import(
+      "./conversation-orchestrator-core"
+    );
+
+    const conversation = makeConversation();
+    const existingInboundMessage = makeMessage({
+      id: "00000000-0000-0000-0000-000000000031",
+      conversation_id: conversation.id,
+      direction: "inbound",
+      role: "user",
+      source: "ghl_webhook_internal",
+      status: "recorded",
+      content: "Already processed",
+      ghl_message_id: "ghl-msg-123",
+    });
+    const auditEvents: CapturedAuditEvent[] = [];
+    let routeCalls = 0;
+
+    const orchestrateConversationTurn = createConversationOrchestrator({
+      resolveConversation: async () => conversation,
+      fetchRecentMessages: async () => {
+        throw new Error("duplicate turns should stop before fetching messages");
+      },
+      findMessageByGhlMessageId: async () => existingInboundMessage,
+      routeInboundMessage: async () => {
+        routeCalls += 1;
+        return makeRouteResult("Should never route", conversation);
+      },
+      insertInboundMessage: async () => {
+        throw new Error("duplicate turns should not insert inbound messages");
+      },
+      insertOutboundMessage: async () => {
+        throw new Error("duplicate turns should not insert outbound drafts");
+      },
+      insertAuditLog: async (input) => captureAuditEvent(auditEvents, input),
+      classifyCandidateResponseForSafeSend,
+      evaluateResponsePolicy,
+      resolveOutboundMode: async () =>
+        resolveOutboundMode({
+          globalMode: "enabled",
+        }),
+      dispatchOutboundTransport: async () => {
+        throw new Error("duplicate turns should not dispatch transport");
+      },
+      now: () => new Date("2026-04-10T16:00:00.000Z"),
+    });
+
+    await assert.rejects(
+      orchestrateConversationTurn({
+        tenantId: conversation.tenant_id,
+        observability: OBSERVABILITY,
+        venue: {
+          id: conversation.tenant_id,
+          venueName: "Test Venue",
+        },
+        conversation: {
+          id: conversation.id,
+        },
+        inbound: {
+          content: "Already processed",
+          source: "ghl_webhook_internal",
+          role: "user",
+          ghlMessageId: "ghl-msg-123",
+        },
+      }),
+      (error: unknown) =>
+        error instanceof Error && error.name === "IdempotencyDropError"
+    );
+
+    assert.equal(routeCalls, 0);
+    assert.deepEqual(
+      auditEvents.map((event) => event.eventType),
+      ["idempotency.dropped"]
+    );
+    assert.equal(auditEvents[0]?.status, "dropped");
+    assert.equal(auditEvents[0]?.errorType, "idempotency_drop");
   });
 
   it("dispatches outbound transport when mode is enabled and policy allows send", async () => {
