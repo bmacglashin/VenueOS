@@ -124,7 +124,7 @@ export function ReviewQueueTable({
                         {item.id}
                       </p>
                       <Link
-                        href={`/mission-control/conversations/${item.conversationId}`}
+                        href={`/mission-control/conversations/${item.conversationId}?tenantId=${item.tenantId}`}
                         className="text-xs font-medium text-amber-300 transition hover:text-amber-200"
                       >
                         Open conversation

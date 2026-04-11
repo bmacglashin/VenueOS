@@ -16,33 +16,51 @@
 - Shift 12B.1 - eval runner and baseline capture (complete)
 - Shift 12B.2 - route scoring and red-team eval coverage (complete)
 - Shift 12E.1 - knowledge ingestion metadata and onboarding SOP (complete)
+- Shift 12E.2 - second tenant seed and tenant-isolation pressure test (complete)
 
 ## Current branch
-- `feat/shift-12e-knowledge-metadata-onboarding`
+- `feat/shift-12e-second-tenant-isolation`
 
 ## Files changed this shift
-- `supabase/migrations/0006_knowledge_source_metadata.sql`
-- `src/lib/db/supabase.ts`
+- `src/data/harborview-loft-knowledge.md`
+- `src/data/mock-tenants.ts`
 - `src/lib/llm/knowledge.ts`
-- `src/services/knowledge-ingestion.ts`
-- `src/services/knowledge-ingestion.test.ts`
+- `src/lib/llm/knowledge.test.ts`
+- `src/services/conversations.ts`
+- `src/services/messages.ts`
+- `src/services/mission-control.ts`
+- `src/services/mission-control.test.ts`
+- `src/services/review-queue.ts`
+- `src/services/review-queue.test.ts`
+- `src/services/operator-review.ts`
+- `src/services/operator-review.test.ts`
+- `src/services/conversation-orchestrator.ts`
+- `src/app/mission-control/conversations/[id]/page.tsx`
+- `src/app/mission-control/conversations/[id]/actions.ts`
+- `src/app/mission-control/sandbox/page.tsx`
+- `src/components/mission-control/conversation-list.tsx`
+- `src/components/mission-control/draft-review-panel.tsx`
+- `src/components/mission-control/review-queue-table.tsx`
+- `scripts/seed-mock-tenants.ts`
+- `docs/runbooks/second-tenant-validation-checklist.md`
 - `docs/knowledge-onboarding.md`
-- `docs/BUILD_STATE.md`
 - `package.json`
+- `README.md`
+- `docs/BUILD_STATE.md`
 
 ## Validation run
 - `npm test`
 - `npm run lint`
 
 ## Blockers / open questions
-- No blockers. Metadata sync intentionally degrades gracefully when no tenant matches `GHL_LOCATION_ID` so request handling is not interrupted.
+- No blockers. Mission Control tenant filters now preserve tenant scope into conversation detail and sandbox flows.
 
 ## Env readiness
-- Knowledge ingestion now records tenant-scoped source metadata with checksum, revision marker, ingest timestamp, and active/inactive state.
-- Re-ingesting unchanged content is deterministic and returns unchanged behavior without creating duplicate rows.
-- New content revisions automatically roll active status forward and preserve previous source rows as inactive history.
-- Runtime knowledge loading remains centralized in `src/lib/llm/knowledge.ts`.
-- Onboarding SOP added for repeatable source naming, metadata requirements, ingestion workflow, and failure triage.
+- `npm run seed:mock-tenants` creates two usable local/dev tenants with seeded knowledge and reviewable sample records.
+- Runtime knowledge loading now resolves the registered pack per tenant slug instead of reusing a single global file.
+- Mission Control conversation detail, sandbox selection, and operator actions reject cross-tenant lookups when tenant scope is present.
+- Review queue filters no longer leak cross-tenant counts, options, or rows when a tenant filter is active.
+- Added unit pressure tests covering tenant-specific knowledge loading, Mission Control conversation isolation, review queue visibility, and operator action scoping.
 
 ## Next recommended shift
-- Shift 12E.2 - second-tenant ingestion pressure test and tenant-isolation retrieval assertions
+- Shift 12E.3 - tenant-aware webhook and seeded tenant smoke path hardening

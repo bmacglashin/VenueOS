@@ -31,9 +31,9 @@ Each ingestion must persist:
 
 ## Step-by-step ingestion SOP
 
-1. Confirm tenant exists in `venue_tenants` and is mapped to the runtime location ID (`GHL_LOCATION_ID`).
+1. Confirm tenant exists in `venue_tenants` and is mapped to the runtime location ID (`GHL_LOCATION_ID`) or seeded mock location id.
 2. Place or update the source file in `src/data/`.
-3. Keep `src/lib/llm/knowledge.ts` as the loading entry point and point it at the correct source file.
+3. Register the tenant slug and source file in `src/data/mock-tenants.ts` so `src/lib/llm/knowledge.ts` can resolve the correct pack per tenant.
 4. Trigger knowledge load by executing a route that calls `getVenueKnowledge()` (webhook path, sandbox flow, or targeted test).
 5. Verify `knowledge_sources` behavior:
    - First ingest creates a new `active` row.
@@ -43,7 +43,8 @@ Each ingestion must persist:
 
 ## Common failure cases
 
-- **Tenant not found for runtime location:** metadata sync is skipped; confirm `GHL_LOCATION_ID` to tenant mapping.
+- **Tenant not found for runtime location:** metadata sync is skipped; confirm `GHL_LOCATION_ID` or mock location mapping.
+- **Tenant slug missing from the knowledge registry:** add the local source file to `src/data/` and register it in `src/data/mock-tenants.ts`.
 - **Duplicate rows for identical content:** ensure checksum uniqueness index exists and migration `0006_knowledge_source_metadata.sql` is applied.
 - **Wrong source_name/source_type pairing:** creates parallel source history; keep naming stable per source.
 - **Unexpected active row count > 1 for same source:** re-run ingestion after fixing stale rows or migration state; active toggling assumes one canonical active version.

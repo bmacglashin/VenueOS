@@ -14,6 +14,7 @@ type Message = Database["public"]["Tables"]["messages"]["Row"];
 
 interface DraftReviewPanelProps {
   conversationId: string;
+  tenantId: string;
   latestAiDraftMessage: Message | null;
   draftVersions: readonly Message[];
   draftRouteCategory: string | null;
@@ -146,6 +147,7 @@ function readEditedFromMessageId(message: Message): string | null {
 
 export function DraftReviewPanel({
   conversationId,
+  tenantId,
   latestAiDraftMessage,
   draftVersions,
   draftRouteCategory,
@@ -214,6 +216,7 @@ export function DraftReviewPanel({
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <form action={approveDraftAndSendAction}>
             <input type="hidden" name="conversationId" value={conversationId} />
+            <input type="hidden" name="tenantId" value={tenantId} />
             <input
               type="hidden"
               name="draftMessageId"
@@ -228,6 +231,7 @@ export function DraftReviewPanel({
           </form>
           <form action={regenerateDraftAction}>
             <input type="hidden" name="conversationId" value={conversationId} />
+            <input type="hidden" name="tenantId" value={tenantId} />
             <input
               type="hidden"
               name="draftMessageId"
@@ -253,6 +257,7 @@ export function DraftReviewPanel({
             </label>
             <form action={editDraftAndSendAction} className="space-y-3">
               <input type="hidden" name="conversationId" value={conversationId} />
+              <input type="hidden" name="tenantId" value={tenantId} />
               <input
                 type="hidden"
                 name="draftMessageId"
@@ -282,6 +287,7 @@ export function DraftReviewPanel({
             </label>
             <form action={addOperatorNoteAction} className="space-y-3">
               <input type="hidden" name="conversationId" value={conversationId} />
+              <input type="hidden" name="tenantId" value={tenantId} />
               <textarea
                 id="manual-note"
                 name="note"

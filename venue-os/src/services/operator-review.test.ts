@@ -224,6 +224,7 @@ describe("createOperatorReviewService", () => {
     });
 
     await service.approveDraftAndSend({
+      tenantId: tenant.id,
       conversationId: conversation.id,
       draftMessageId: queuedDraft.id,
     });
@@ -353,6 +354,7 @@ describe("createOperatorReviewService", () => {
     });
 
     await service.editDraftAndSend({
+      tenantId: tenant.id,
       conversationId: conversation.id,
       draftMessageId: queuedDraft.id,
       content: "Thanks for reaching out. A team member will follow up shortly.",
@@ -422,6 +424,7 @@ describe("createOperatorReviewService", () => {
     });
 
     await service.addManualNote({
+      tenantId: tenant.id,
       conversationId: conversation.id,
       note: "Waiting for confirmation from events before sending.",
     });
@@ -552,6 +555,7 @@ describe("createOperatorReviewService", () => {
     });
 
     await service.regenerateDraft({
+      tenantId: tenant.id,
       conversationId: conversation.id,
       draftMessageId: queuedDraft.id,
     });
@@ -561,5 +565,50 @@ describe("createOperatorReviewService", () => {
     assert.equal(regenerateInput?.baseDraftMessageId, queuedDraft.id);
     assert.equal(typeof regenerateInput?.observability?.requestId, "string");
     assert.equal(typeof regenerateInput?.observability?.traceId, "string");
+  });
+
+  it("rejects cross-tenant operator actions before any send or audit work starts", async () => {
+    const tenant = makeTenant();
+    const otherConversation = makeConversation({
+      tenant_id: "00000000-0000-0000-0000-000000000099",
+    });
+
+    const service = createOperatorReviewService({
+      getConversationById: async () => otherConversation,
+      getTenantById: async () => tenant,
+      listConversationMessages: async () => {
+        throw new Error("cross-tenant reads should stop before loading messages");
+      },
+      updateMessage: async () => {
+        throw new Error("cross-tenant actions should not update messages");
+      },
+      insertOutboundMessage: async () => {
+        throw new Error("cross-tenant actions should not insert messages");
+      },
+      insertAuditLog: async () => {
+        throw new Error("cross-tenant actions should not write audit logs");
+      },
+      resolveOutboundMode: async () =>
+        resolveOutboundMode({
+          globalMode: "enabled",
+        }),
+      dispatchOutboundTransport: async () => {
+        throw new Error("cross-tenant actions should not dispatch transport");
+      },
+      classifyCandidateResponseForSafeSend,
+      evaluateResponsePolicy,
+      regenerateConversationDraft: async () => {
+        throw new Error("cross-tenant actions should not regenerate drafts");
+      },
+      now: () => new Date("2026-04-10T16:05:00.000Z"),
+    });
+
+    await assert.rejects(
+      service.approveDraftAndSend({
+        tenantId: tenant.id,
+        conversationId: otherConversation.id,
+      }),
+      /does not belong to tenant/
+    );
   });
 });

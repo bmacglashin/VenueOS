@@ -94,7 +94,7 @@ export function ConversationList({
             return (
               <li key={conversation.conversation.id}>
                 <Link
-                  href={`/mission-control/conversations/${conversation.conversation.id}`}
+                  href={`/mission-control/conversations/${conversation.conversation.id}?tenantId=${conversation.conversation.tenant_id}`}
                   className={`block rounded-lg border px-3 py-3 transition ${
                     isSelected
                       ? "border-amber-400 bg-amber-400/10"

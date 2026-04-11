@@ -1,9 +1,5 @@
-import "server-only";
-
 import type { Database, Json } from "@/src/lib/db/supabase";
-import { createSupabaseAdminClient } from "@/src/lib/db/admin";
-import { listTenants } from "@/src/services/conversations";
-import { resolveOutboundModeForTenant } from "@/src/services/outbound-settings";
+import { OUTBOUND_MODES, type OutboundMode } from "@/src/lib/config/outbound";
 import {
   REVIEW_QUEUE_CONFIDENCE_BANDS,
   filterReviewQueueItems,
@@ -13,7 +9,10 @@ import {
   type ReviewQueueItem,
   type ReviewQueuePolicyReason,
 } from "@/src/services/review-queue-core";
-import type { ResolvedOutboundMode } from "@/src/services/outbound-control";
+import {
+  resolveOutboundMode,
+  type ResolvedOutboundMode,
+} from "@/src/services/outbound-control";
 
 type Tenant = Database["public"]["Tables"]["venue_tenants"]["Row"];
 type Conversation = Database["public"]["Tables"]["conversations"]["Row"];
@@ -52,6 +51,26 @@ export interface MissionControlReviewQueueData {
   statuses: ReviewQueueFilterOption[];
   confidenceBands: ReviewQueueConfidenceBandOption[];
   stats: ReviewQueueStats;
+}
+
+export interface ReviewQueueDependencies {
+  listTenants: (input: { limit?: number }) => Promise<Tenant[]>;
+  listQueuedReviewDrafts: (input: {
+    tenantId?: string;
+    limit?: number;
+  }) => Promise<Message[]>;
+  listConversationsByIds: (
+    conversationIds: readonly string[]
+  ) => Promise<Map<string, Conversation>>;
+  listTenantsByIds: (tenantIds: readonly string[]) => Promise<Map<string, Tenant>>;
+  listMessagesByIds: (messageIds: readonly string[]) => Promise<Map<string, Message>>;
+  listLatestInboundMessages: (input: {
+    conversationIds: readonly string[];
+    tenantId?: string;
+  }) => Promise<Map<string, Message>>;
+  resolveOutboundModeForTenant: (
+    tenant: Tenant | null
+  ) => ResolvedOutboundMode | null;
 }
 
 function isJsonObject(
@@ -218,15 +237,79 @@ function formatOptionLabel(value: string): string {
   return value.replaceAll("_", " ");
 }
 
-async function listQueuedReviewDrafts(): Promise<Message[]> {
-  const supabase = createSupabaseAdminClient();
+function normalizeOutboundMode(value: string | null | undefined): OutboundMode | null {
+  if (value == null) {
+    return null;
+  }
+
+  return OUTBOUND_MODES.find((mode) => mode === value) ?? null;
+}
+
+function getDefaultGlobalOutboundMode(): OutboundMode {
+  return normalizeOutboundMode(process.env.OUTBOUND_MODE) ?? "review_only";
+}
+
+async function getSupabaseAdminClient() {
+  const { createSupabaseAdminClient } = await import("@/src/lib/db/admin");
+  return createSupabaseAdminClient();
+}
+
+async function listConversationIdsForTenant(
+  tenantId: string
+): Promise<string[]> {
+  const supabase = await getSupabaseAdminClient();
+  const result = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("tenant_id", tenantId);
+
+  if (result.error != null) {
+    throw new Error(
+      `Failed to list conversations for tenant ${tenantId}: ${result.error.message}`
+    );
+  }
+
+  return result.data.map((conversation) => conversation.id);
+}
+
+async function defaultListQueuedReviewDrafts(input: {
+  tenantId?: string;
+  limit?: number;
+}): Promise<Message[]> {
+  const supabase = await getSupabaseAdminClient();
+
+  if (input.tenantId != null) {
+    const conversationIds = await listConversationIdsForTenant(input.tenantId);
+
+    if (conversationIds.length === 0) {
+      return [];
+    }
+
+    const result = await supabase
+      .from("messages")
+      .select("*")
+      .eq("source", AI_DRAFT_SOURCE)
+      .eq("status", REVIEW_QUEUE_STATUS)
+      .in("conversation_id", conversationIds)
+      .order("created_at", { ascending: false })
+      .limit(input.limit ?? REVIEW_QUEUE_LIMIT);
+
+    if (result.error != null) {
+      throw new Error(
+        `Failed to list review queue drafts for tenant ${input.tenantId}: ${result.error.message}`
+      );
+    }
+
+    return result.data;
+  }
+
   const result = await supabase
     .from("messages")
     .select("*")
     .eq("source", AI_DRAFT_SOURCE)
     .eq("status", REVIEW_QUEUE_STATUS)
     .order("created_at", { ascending: false })
-    .limit(REVIEW_QUEUE_LIMIT);
+    .limit(input.limit ?? REVIEW_QUEUE_LIMIT);
 
   if (result.error != null) {
     throw new Error(`Failed to list review queue drafts: ${result.error.message}`);
@@ -235,14 +318,14 @@ async function listQueuedReviewDrafts(): Promise<Message[]> {
   return result.data;
 }
 
-async function listConversationsByIds(
+async function defaultListConversationsByIds(
   conversationIds: readonly string[]
 ): Promise<Map<string, Conversation>> {
   if (conversationIds.length === 0) {
     return new Map();
   }
 
-  const supabase = createSupabaseAdminClient();
+  const supabase = await getSupabaseAdminClient();
   const result = await supabase
     .from("conversations")
     .select("*")
@@ -257,14 +340,14 @@ async function listConversationsByIds(
   return new Map(result.data.map((conversation) => [conversation.id, conversation]));
 }
 
-async function listTenantsByIds(
+async function defaultListTenantsByIds(
   tenantIds: readonly string[]
 ): Promise<Map<string, Tenant>> {
   if (tenantIds.length === 0) {
     return new Map();
   }
 
-  const supabase = createSupabaseAdminClient();
+  const supabase = await getSupabaseAdminClient();
   const result = await supabase
     .from("venue_tenants")
     .select("*")
@@ -277,14 +360,14 @@ async function listTenantsByIds(
   return new Map(result.data.map((tenant) => [tenant.id, tenant]));
 }
 
-async function listMessagesByIds(
+async function defaultListMessagesByIds(
   messageIds: readonly string[]
 ): Promise<Map<string, Message>> {
   if (messageIds.length === 0) {
     return new Map();
   }
 
-  const supabase = createSupabaseAdminClient();
+  const supabase = await getSupabaseAdminClient();
   const result = await supabase
     .from("messages")
     .select("*")
@@ -299,20 +382,23 @@ async function listMessagesByIds(
   return new Map(result.data.map((message) => [message.id, message]));
 }
 
-async function listLatestInboundMessages(
-  conversationIds: readonly string[]
-): Promise<Map<string, Message>> {
-  if (conversationIds.length === 0) {
+async function defaultListLatestInboundMessages(input: {
+  conversationIds: readonly string[];
+  tenantId?: string;
+}): Promise<Map<string, Message>> {
+  if (input.conversationIds.length === 0) {
     return new Map();
   }
 
-  const supabase = createSupabaseAdminClient();
-  const result = await supabase
+  const supabase = await getSupabaseAdminClient();
+  const query = supabase
     .from("messages")
     .select("*")
-    .in("conversation_id", [...conversationIds])
+    .in("conversation_id", [...input.conversationIds])
     .eq("direction", "inbound")
     .order("created_at", { ascending: false });
+
+  const result = await query;
 
   if (result.error != null) {
     throw new Error(
@@ -331,118 +417,172 @@ async function listLatestInboundMessages(
   return latestByConversation;
 }
 
-async function buildReviewQueueItems(
-  drafts: readonly Message[]
-): Promise<ReviewQueueItem[]> {
-  const conversationsById = await listConversationsByIds(
-    [...new Set(drafts.map((draft) => draft.conversation_id))]
-  );
-  const tenantsById = await listTenantsByIds(
-    [
-      ...new Set(
-        [...conversationsById.values()].map((conversation) => conversation.tenant_id)
-      ),
-    ]
-  );
-  const inboundMessageIds = [
-    ...new Set(
-      drafts
-        .map((draft) => readInboundMessageId(draft))
-        .filter((value): value is string => value != null)
-    ),
-  ];
-  const inboundMessagesById = await listMessagesByIds(inboundMessageIds);
-  const fallbackInboundByConversation = await listLatestInboundMessages(
-    drafts
-      .filter((draft) => readInboundMessageId(draft) == null)
-      .map((draft) => draft.conversation_id)
-  );
+async function defaultListTenants(input: {
+  limit?: number;
+}): Promise<Tenant[]> {
+  const { listTenants } = await import("@/src/services/conversations");
+  return listTenants(input);
+}
 
-  return drafts.flatMap((draft) => {
-    const conversation = conversationsById.get(draft.conversation_id);
+function defaultResolveOutboundModeForTenant(
+  tenant: Tenant | null
+): ResolvedOutboundMode | null {
+  if (tenant == null) {
+    return null;
+  }
 
-    if (conversation == null) {
-      return [];
-    }
-
-    const tenant = tenantsById.get(conversation.tenant_id);
-
-    if (tenant == null) {
-      return [];
-    }
-
-    const inboundMessageId = readInboundMessageId(draft);
-    const inboundMessage =
-      (inboundMessageId != null
-        ? inboundMessagesById.get(inboundMessageId)
-        : undefined) ?? fallbackInboundByConversation.get(conversation.id);
-    const confidence = readConfidence(draft);
-
-    return [
-      {
-        id: draft.id,
-        conversationId: conversation.id,
-        tenantId: tenant.id,
-        tenantName: tenant.name,
-        status: conversation.status,
-        inboundExcerpt: summarizeExcerpt(inboundMessage?.content ?? null),
-        route: readRoute(draft),
-        confidence,
-        confidenceBand: getReviewQueueConfidenceBand(confidence),
-        policyDecision: readPolicyDecision(draft),
-        policyReasons: readPolicyReasons(draft),
-        createdAt: draft.created_at,
-      },
-    ];
+  return resolveOutboundMode({
+    globalMode: getDefaultGlobalOutboundMode(),
+    tenantOverride: normalizeOutboundMode(tenant.outbound_mode_override),
   });
 }
 
-export async function getMissionControlReviewQueue(
-  filters: ReviewQueueFilters = {}
-): Promise<MissionControlReviewQueueData> {
-  const [tenants, drafts] = await Promise.all([
-    listTenants({
-      limit: 100,
-    }),
-    listQueuedReviewDrafts(),
-  ]);
-  const items = await buildReviewQueueItems(drafts);
-  const filteredItems = filterReviewQueueItems(items, filters);
-  const selectedTenant =
-    filters.tenantId == null
-      ? null
-      : tenants.find((tenant) => tenant.id === filters.tenantId) ?? null;
+export function createReviewQueueService(
+  overrides: Partial<ReviewQueueDependencies> = {}
+) {
+  const deps: ReviewQueueDependencies = {
+    listTenants: defaultListTenants,
+    listQueuedReviewDrafts: defaultListQueuedReviewDrafts,
+    listConversationsByIds: defaultListConversationsByIds,
+    listTenantsByIds: defaultListTenantsByIds,
+    listMessagesByIds: defaultListMessagesByIds,
+    listLatestInboundMessages: defaultListLatestInboundMessages,
+    resolveOutboundModeForTenant: defaultResolveOutboundModeForTenant,
+    ...overrides,
+  };
+
+  async function buildReviewQueueItems(
+    drafts: readonly Message[],
+    filters: ReviewQueueFilters
+  ): Promise<ReviewQueueItem[]> {
+    const conversationsById = await deps.listConversationsByIds(
+      [...new Set(drafts.map((draft) => draft.conversation_id))]
+    );
+    const tenantsById = await deps.listTenantsByIds(
+      [
+        ...new Set(
+          [...conversationsById.values()].map((conversation) => conversation.tenant_id)
+        ),
+      ]
+    );
+    const inboundMessageIds = [
+      ...new Set(
+        drafts
+          .map((draft) => readInboundMessageId(draft))
+          .filter((value): value is string => value != null)
+      ),
+    ];
+    const inboundMessagesById = await deps.listMessagesByIds(inboundMessageIds);
+    const fallbackInboundByConversation = await deps.listLatestInboundMessages({
+      tenantId: filters.tenantId,
+      conversationIds: drafts
+        .filter((draft) => readInboundMessageId(draft) == null)
+        .map((draft) => draft.conversation_id),
+    });
+
+    return drafts.flatMap((draft) => {
+      const conversation = conversationsById.get(draft.conversation_id);
+
+      if (conversation == null) {
+        return [];
+      }
+
+      const tenant = tenantsById.get(conversation.tenant_id);
+
+      if (tenant == null) {
+        return [];
+      }
+
+      const inboundMessageId = readInboundMessageId(draft);
+      const inboundMessage =
+        (inboundMessageId != null
+          ? inboundMessagesById.get(inboundMessageId)
+          : undefined) ?? fallbackInboundByConversation.get(conversation.id);
+      const confidence = readConfidence(draft);
+
+      return [
+        {
+          id: draft.id,
+          conversationId: conversation.id,
+          tenantId: tenant.id,
+          tenantName: tenant.name,
+          status: conversation.status,
+          inboundExcerpt: summarizeExcerpt(inboundMessage?.content ?? null),
+          route: readRoute(draft),
+          confidence,
+          confidenceBand: getReviewQueueConfidenceBand(confidence),
+          policyDecision: readPolicyDecision(draft),
+          policyReasons: readPolicyReasons(draft),
+          createdAt: draft.created_at,
+        },
+      ];
+    });
+  }
+
+  async function getMissionControlReviewQueue(
+    filters: ReviewQueueFilters = {}
+  ): Promise<MissionControlReviewQueueData> {
+    const [tenants, drafts] = await Promise.all([
+      deps.listTenants({
+        limit: 100,
+      }),
+      deps.listQueuedReviewDrafts({
+        tenantId: filters.tenantId,
+        limit: REVIEW_QUEUE_LIMIT,
+      }),
+    ]);
+    const items = await buildReviewQueueItems(drafts, filters);
+    const tenantScopedItems =
+      filters.tenantId == null
+        ? items
+        : items.filter((item) => item.tenantId === filters.tenantId);
+    const filteredItems = filterReviewQueueItems(tenantScopedItems, filters);
+    const selectedTenant =
+      filters.tenantId == null
+        ? null
+        : tenants.find((tenant) => tenant.id === filters.tenantId) ?? null;
+
+    return {
+      tenants,
+      selectedTenant,
+      resolvedOutboundMode: deps.resolveOutboundModeForTenant(selectedTenant),
+      filters,
+      items: filteredItems,
+      totalCount: tenantScopedItems.length,
+      routes: buildOptionCounts(
+        tenantScopedItems
+          .map((item) => item.route)
+          .filter((value): value is string => value != null),
+        formatOptionLabel
+      ),
+      statuses: buildOptionCounts(
+        tenantScopedItems
+          .map((item) => item.status)
+          .filter((value): value is string => value.trim().length > 0),
+        formatOptionLabel
+      ),
+      confidenceBands: REVIEW_QUEUE_CONFIDENCE_BANDS.map((band) => ({
+        value: band,
+        label: formatConfidenceBandLabel(band),
+        count: tenantScopedItems.filter((item) => item.confidenceBand === band)
+          .length,
+      })),
+      stats: {
+        reviewCount: tenantScopedItems.length,
+        tenantCount: new Set(tenantScopedItems.map((item) => item.tenantId)).size,
+        lowConfidenceCount: tenantScopedItems.filter(
+          (item) => item.confidenceBand === "low"
+        ).length,
+      },
+    };
+  }
 
   return {
-    tenants,
-    selectedTenant,
-    resolvedOutboundMode: resolveOutboundModeForTenant(selectedTenant),
-    filters,
-    items: filteredItems,
-    totalCount: items.length,
-    routes: buildOptionCounts(
-      items
-        .map((item) => item.route)
-        .filter((value): value is string => value != null),
-      formatOptionLabel
-    ),
-    statuses: buildOptionCounts(
-      items
-        .map((item) => item.status)
-        .filter((value): value is string => value.trim().length > 0),
-      formatOptionLabel
-    ),
-    confidenceBands: REVIEW_QUEUE_CONFIDENCE_BANDS.map((band) => ({
-      value: band,
-      label: formatConfidenceBandLabel(band),
-      count: items.filter((item) => item.confidenceBand === band).length,
-    })),
-    stats: {
-      reviewCount: items.length,
-      tenantCount: new Set(items.map((item) => item.tenantId)).size,
-      lowConfidenceCount: items.filter(
-        (item) => item.confidenceBand === "low"
-      ).length,
-    },
+    getMissionControlReviewQueue,
   };
 }
+
+const reviewQueueService = createReviewQueueService();
+
+export const getMissionControlReviewQueue =
+  reviewQueueService.getMissionControlReviewQueue;

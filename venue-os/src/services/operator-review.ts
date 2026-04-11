@@ -61,18 +61,21 @@ interface ReviewContext {
 }
 
 export interface AddOperatorNoteInput {
+  tenantId: string;
   conversationId: string;
   note: string;
   observability?: ObservabilityContext;
 }
 
 export interface ApproveDraftAndSendInput {
+  tenantId: string;
   conversationId: string;
   draftMessageId?: string;
   observability?: ObservabilityContext;
 }
 
 export interface EditDraftAndSendInput {
+  tenantId: string;
   conversationId: string;
   draftMessageId?: string;
   content: string;
@@ -459,6 +462,7 @@ function buildEditedDraftMetadata(input: {
 async function resolveReviewContext(
   deps: OperatorReviewDependencies,
   input: {
+    tenantId: string;
     conversationId: string;
     draftMessageId?: string;
   }
@@ -467,6 +471,12 @@ async function resolveReviewContext(
 
   if (conversation == null) {
     throw new Error(`Conversation ${input.conversationId} was not found.`);
+  }
+
+  if (conversation.tenant_id !== input.tenantId) {
+    throw new Error(
+      `Conversation ${input.conversationId} does not belong to tenant ${input.tenantId}.`
+    );
   }
 
   const tenant = await deps.getTenantById(conversation.tenant_id);
@@ -649,6 +659,7 @@ export function createOperatorReviewService(
       }
 
       const context = await resolveReviewContext(deps, {
+        tenantId: input.tenantId,
         conversationId: input.conversationId,
       });
 
