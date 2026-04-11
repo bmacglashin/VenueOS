@@ -1,4 +1,8 @@
 import type { Database } from "@/src/lib/db/supabase";
+import {
+  getDraftVersionSnapshot,
+  OPERATOR_EDIT_SOURCE,
+} from "@/src/services/draft-history";
 
 type Message = Database["public"]["Tables"]["messages"]["Row"];
 
@@ -24,8 +28,24 @@ function formatTimestamp(value: string): string {
 }
 
 function getMessageLabel(message: Message): string {
-  if (message.direction === "outbound" && message.status === "draft") {
-    return "AI draft";
+  const draftVersion = getDraftVersionSnapshot(message);
+
+  if (draftVersion != null) {
+    const versionLabel = `v${draftVersion.version}`;
+
+    if (draftVersion.kind === "operator_edit") {
+      return `Operator edit ${versionLabel}`;
+    }
+
+    if (draftVersion.kind === "regenerated_ai_draft") {
+      return `Regenerated draft ${versionLabel}`;
+    }
+
+    return `AI draft ${versionLabel}`;
+  }
+
+  if (message.source === OPERATOR_EDIT_SOURCE) {
+    return "Operator edit";
   }
 
   if (message.direction === "outbound") {
@@ -56,6 +76,8 @@ export function MessageTranscript({ messages }: MessageTranscriptProps) {
               className={`rounded-lg border p-4 ${
                 message.direction === "inbound"
                   ? "border-sky-500/30 bg-sky-500/10"
+                  : getDraftVersionSnapshot(message) != null
+                    ? "border-amber-500/30 bg-amber-500/10"
                   : "border-zinc-700 bg-zinc-950/80"
               }`}
             >

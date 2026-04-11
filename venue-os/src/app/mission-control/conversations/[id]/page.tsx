@@ -7,6 +7,7 @@ import { DraftReviewPanel } from "@/src/components/mission-control/draft-review-
 import { JsonPanel } from "@/src/components/mission-control/json-panel";
 import { MessageTranscript } from "@/src/components/mission-control/message-transcript";
 import { MissionControlShell } from "@/src/components/mission-control/mission-control-shell";
+import { listDraftVersionMessages } from "@/src/services/draft-history";
 import { getMissionControlConversationDetail } from "@/src/services/mission-control";
 
 interface MissionControlConversationPageProps {
@@ -40,7 +41,7 @@ export default async function MissionControlConversationPage({
     return (
       <MissionControlShell
         title={`Conversation ${data.conversation.id.slice(0, 8)}`}
-        description="Internal conversation detail view with transcript, AI draft review, manual override staging, and raw payload / log panels."
+        description="Internal conversation detail view with transcript, operator review actions, draft version history, and a readable audit timeline."
         selectedTenantName={data.tenant.name}
         resolvedOutboundMode={data.resolvedOutboundMode}
       >
@@ -79,7 +80,9 @@ export default async function MissionControlConversationPage({
           <MessageTranscript messages={data.messages} />
           <div className="space-y-6">
             <DraftReviewPanel
+              conversationId={data.conversation.id}
               latestAiDraftMessage={data.latestAiDraftMessage}
+              draftVersions={listDraftVersionMessages(data.messages)}
               draftRouteCategory={data.draftRouteCategory}
               draftPolicyDecision={data.draftPolicyDecision}
               draftOutboundAction={data.draftOutboundAction}
@@ -108,7 +111,7 @@ export default async function MissionControlConversationPage({
     return (
       <MissionControlShell
         title={`Conversation ${id.slice(0, 8)}`}
-        description="Internal conversation detail view with transcript, AI draft review, manual override staging, and raw payload / log panels."
+        description="Internal conversation detail view with transcript, operator review actions, draft version history, and a readable audit timeline."
       >
         <JsonPanel
           title="Backend diagnostics"

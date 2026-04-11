@@ -7,6 +7,7 @@ import { JsonPanel } from "@/src/components/mission-control/json-panel";
 import { MessageTranscript } from "@/src/components/mission-control/message-transcript";
 import { MissionControlShell } from "@/src/components/mission-control/mission-control-shell";
 import { SandboxForm } from "@/src/components/mission-control/sandbox-form";
+import { listDraftVersionMessages } from "@/src/services/draft-history";
 import { getMissionControlSandboxData } from "@/src/services/mission-control";
 
 export const metadata: Metadata = {
@@ -99,7 +100,11 @@ export default async function MissionControlSandboxPage({
               <MessageTranscript messages={data.selectedConversation.messages} />
               <div className="grid gap-6 lg:grid-cols-2">
                 <DraftReviewPanel
+                  conversationId={data.selectedConversation.conversation.id}
                   latestAiDraftMessage={data.selectedConversation.latestAiDraftMessage}
+                  draftVersions={listDraftVersionMessages(
+                    data.selectedConversation.messages
+                  )}
                   draftRouteCategory={data.selectedConversation.draftRouteCategory}
                   draftPolicyDecision={data.selectedConversation.draftPolicyDecision}
                   draftOutboundAction={data.selectedConversation.draftOutboundAction}
@@ -109,6 +114,7 @@ export default async function MissionControlSandboxPage({
                   draftRequiresHumanReview={
                     data.selectedConversation.draftRequiresHumanReview
                   }
+                  showOperatorActions={false}
                 />
                 <JsonPanel
                   title="Latest inbound raw payload"

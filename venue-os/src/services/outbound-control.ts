@@ -13,6 +13,9 @@ export const OUTBOUND_CONTROL_REASON_CODES = [
   "global_disabled",
   "tenant_review_only",
   "tenant_disabled",
+  "operator_approved_send",
+  "operator_edited_send",
+  "operator_regenerated_for_review",
 ] as const;
 
 export type OutboundControlReasonCode =
@@ -81,6 +84,24 @@ function buildReason(
         code,
         detail:
           "The tenant override disables outbound sending for this tenant.",
+      };
+    case "operator_approved_send":
+      return {
+        code,
+        detail:
+          "A Mission Control operator approved the queued draft and moved it onto the shared transport path.",
+      };
+    case "operator_edited_send":
+      return {
+        code,
+        detail:
+          "A Mission Control operator edited the draft and sent the revised version through the shared transport path.",
+      };
+    case "operator_regenerated_for_review":
+      return {
+        code,
+        detail:
+          "A Mission Control operator regenerated the draft, which intentionally created a fresh review candidate instead of sending immediately.",
       };
     default: {
       const exhaustiveCheck: never = code;

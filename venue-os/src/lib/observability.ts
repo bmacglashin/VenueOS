@@ -15,6 +15,10 @@ export const STRUCTURED_EVENT_NAMES = [
   "outbound.sent",
   "outbound.failed",
   "orchestration.halted",
+  "operator_action.note_added",
+  "operator_action.approve_and_send",
+  "operator_action.edit_and_send",
+  "operator_action.regenerate_draft",
 ] as const;
 
 export type StructuredEventName = (typeof STRUCTURED_EVENT_NAMES)[number];

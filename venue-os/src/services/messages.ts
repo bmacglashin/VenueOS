@@ -44,6 +44,17 @@ export interface FindMessageByGhlMessageIdInput {
   ghlMessageId: string;
 }
 
+export interface UpdateMessageInput {
+  messageId: string;
+  content?: string;
+  status?: string;
+  metadata?: Json;
+  rawPayload?: Json;
+  policyDecision?: ResponsePolicyDecision | null;
+  policyReasons?: ResponsePolicyReason[];
+  policyEvaluatedAt?: string | null;
+}
+
 export async function insertMessage(input: InsertMessageInput): Promise<Message> {
   const supabase = createSupabaseAdminClient();
 
@@ -146,6 +157,98 @@ export async function findMessageByGhlMessageId(
   if (result.error != null) {
     throw new DatabaseError(
       `Failed to fetch message by GHL message id: ${result.error.message}`,
+      {
+        cause: result.error,
+      }
+    );
+  }
+
+  return result.data;
+}
+
+export async function listConversationMessages(
+  conversationId: string
+): Promise<Message[]> {
+  const supabase = createSupabaseAdminClient();
+
+  const result = await supabase
+    .from("messages")
+    .select("*")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true });
+
+  if (result.error != null) {
+    throw new DatabaseError(
+      `Failed to list messages for conversation ${conversationId}: ${result.error.message}`,
+      {
+        cause: result.error,
+      }
+    );
+  }
+
+  return result.data;
+}
+
+export async function getMessageById(messageId: string): Promise<Message | null> {
+  const supabase = createSupabaseAdminClient();
+
+  const result = await supabase
+    .from("messages")
+    .select("*")
+    .eq("id", messageId)
+    .maybeSingle();
+
+  if (result.error != null) {
+    throw new DatabaseError(`Failed to fetch message ${messageId}: ${result.error.message}`, {
+      cause: result.error,
+    });
+  }
+
+  return result.data;
+}
+
+export async function updateMessage(input: UpdateMessageInput): Promise<Message> {
+  const supabase = createSupabaseAdminClient();
+  const updatePayload: Database["public"]["Tables"]["messages"]["Update"] = {};
+
+  if (input.content !== undefined) {
+    updatePayload.content = input.content;
+  }
+
+  if (input.status !== undefined) {
+    updatePayload.status = input.status;
+  }
+
+  if (input.metadata !== undefined) {
+    updatePayload.metadata = input.metadata;
+  }
+
+  if (input.rawPayload !== undefined) {
+    updatePayload.raw_payload = input.rawPayload;
+  }
+
+  if (input.policyDecision !== undefined) {
+    updatePayload.policy_decision = input.policyDecision;
+  }
+
+  if (input.policyReasons !== undefined) {
+    updatePayload.policy_reasons = toJsonValue(input.policyReasons);
+  }
+
+  if (input.policyEvaluatedAt !== undefined) {
+    updatePayload.policy_evaluated_at = input.policyEvaluatedAt;
+  }
+
+  const result = await supabase
+    .from("messages")
+    .update(updatePayload)
+    .eq("id", input.messageId)
+    .select("*")
+    .single();
+
+  if (result.error != null || result.data == null) {
+    throw new DatabaseError(
+      `Failed to update message ${input.messageId}: ${result.error?.message ?? "no data returned"}`,
       {
         cause: result.error,
       }
