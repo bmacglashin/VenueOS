@@ -20,6 +20,10 @@ export interface GetTenantByGhlLocationIdInput {
   ghlLocationId: string;
 }
 
+export interface GetTenantBySlugInput {
+  slug: string;
+}
+
 export interface FindOrCreateConversationInput {
   tenantId: string;
   ghlContactId?: string | null;
@@ -39,6 +43,16 @@ export interface ListTenantsInput {
 export interface ConversationWithMessages {
   conversation: Conversation;
   messages: Message[];
+}
+
+export interface GetConversationByIdForTenantInput {
+  tenantId: string;
+  conversationId: string;
+}
+
+export interface GetConversationWithMessagesForTenantInput {
+  tenantId: string;
+  conversationId: string;
 }
 
 function mustData<T>(result: PostgrestSingleResponse<T>, context: string): T {
@@ -106,6 +120,29 @@ export async function getTenantByGhlLocationId(
   if (result.error != null) {
     throw new DatabaseError(
       `Failed to lookup tenant by GHL location id: ${result.error.message}`,
+      {
+        cause: result.error,
+      }
+    );
+  }
+
+  return result.data;
+}
+
+export async function getTenantBySlug(
+  input: GetTenantBySlugInput
+): Promise<Tenant | null> {
+  const supabase = createSupabaseAdminClient();
+
+  const result = await supabase
+    .from("venue_tenants")
+    .select("*")
+    .eq("slug", input.slug)
+    .maybeSingle();
+
+  if (result.error != null) {
+    throw new DatabaseError(
+      `Failed to lookup tenant by slug: ${result.error.message}`,
       {
         cause: result.error,
       }
@@ -244,6 +281,30 @@ export async function getConversationById(
   return result.data;
 }
 
+export async function getConversationByIdForTenant(
+  input: GetConversationByIdForTenantInput
+): Promise<Conversation | null> {
+  const supabase = createSupabaseAdminClient();
+
+  const result = await supabase
+    .from("conversations")
+    .select("*")
+    .eq("id", input.conversationId)
+    .eq("tenant_id", input.tenantId)
+    .maybeSingle();
+
+  if (result.error != null) {
+    throw new DatabaseError(
+      `Failed to fetch conversation ${input.conversationId} for tenant ${input.tenantId}: ${result.error.message}`,
+      {
+        cause: result.error,
+      }
+    );
+  }
+
+  return result.data;
+}
+
 export async function getConversationWithMessages(
   conversationId: string
 ): Promise<ConversationWithMessages | null> {
@@ -285,6 +346,40 @@ export async function getConversationWithMessages(
 
   return {
     conversation: conversationResult.data,
+    messages: messagesResult.data,
+  };
+}
+
+export async function getConversationWithMessagesForTenant(
+  input: GetConversationWithMessagesForTenantInput
+): Promise<ConversationWithMessages | null> {
+  const conversation = await getConversationByIdForTenant({
+    tenantId: input.tenantId,
+    conversationId: input.conversationId,
+  });
+
+  if (conversation == null) {
+    return null;
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const messagesResult = await supabase
+    .from("messages")
+    .select("*")
+    .eq("conversation_id", input.conversationId)
+    .order("created_at", { ascending: true });
+
+  if (messagesResult.error != null) {
+    throw new DatabaseError(
+      `Failed to fetch messages for conversation ${input.conversationId}: ${messagesResult.error.message}`,
+      {
+        cause: messagesResult.error,
+      }
+    );
+  }
+
+  return {
+    conversation,
     messages: messagesResult.data,
   };
 }

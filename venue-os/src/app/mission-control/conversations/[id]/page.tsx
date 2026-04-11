@@ -14,6 +14,18 @@ interface MissionControlConversationPageProps {
   params: Promise<{
     id: string;
   }>;
+  searchParams: Promise<{
+    tenantId?: string | string[];
+  }>;
+}
+
+function readSearchParam(value?: string | string[]): string | undefined {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+
+  const trimmed = value?.trim();
+  return trimmed != null && trimmed.length > 0 ? trimmed : undefined;
 }
 
 export async function generateMetadata({
@@ -28,11 +40,17 @@ export async function generateMetadata({
 
 export default async function MissionControlConversationPage({
   params,
+  searchParams,
 }: MissionControlConversationPageProps) {
   const { id } = await params;
+  const resolvedSearchParams = await searchParams;
+  const tenantId = readSearchParam(resolvedSearchParams.tenantId);
 
   try {
-    const data = await getMissionControlConversationDetail(id);
+    const data = await getMissionControlConversationDetail({
+      conversationId: id,
+      tenantId,
+    });
 
     if (data == null) {
       notFound();
@@ -81,6 +99,7 @@ export default async function MissionControlConversationPage({
           <div className="space-y-6">
             <DraftReviewPanel
               conversationId={data.conversation.id}
+              tenantId={data.tenant.id}
               latestAiDraftMessage={data.latestAiDraftMessage}
               draftVersions={listDraftVersionMessages(data.messages)}
               draftRouteCategory={data.draftRouteCategory}
@@ -118,6 +137,7 @@ export default async function MissionControlConversationPage({
           description="Mission Control could not load this conversation from the configured backend."
           value={{
             conversationId: id,
+            tenantId: tenantId ?? null,
             error: message,
           }}
         />

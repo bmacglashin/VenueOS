@@ -90,7 +90,7 @@ export default async function MissionControlSandboxPage({
                     </p>
                   </div>
                   <Link
-                    href={`/mission-control/conversations/${data.selectedConversation.conversation.id}`}
+                    href={`/mission-control/conversations/${data.selectedConversation.conversation.id}?tenantId=${data.selectedConversation.tenant.id}`}
                     className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-950"
                   >
                     Open full conversation detail
@@ -101,6 +101,7 @@ export default async function MissionControlSandboxPage({
               <div className="grid gap-6 lg:grid-cols-2">
                 <DraftReviewPanel
                   conversationId={data.selectedConversation.conversation.id}
+                  tenantId={data.selectedConversation.tenant.id}
                   latestAiDraftMessage={data.selectedConversation.latestAiDraftMessage}
                   draftVersions={listDraftVersionMessages(
                     data.selectedConversation.messages

@@ -6,6 +6,7 @@ import {
   IdempotencyDropError,
 } from "@/src/lib/observability";
 import { createSupabaseAdminClient } from "@/src/lib/db/admin";
+import { getConversationByIdForTenant } from "@/src/services/conversations";
 import type {
   ResponsePolicyDecision,
   ResponsePolicyReason,
@@ -40,7 +41,18 @@ export interface FetchRecentMessagesInput {
   limit?: number;
 }
 
+export interface FetchRecentMessagesForTenantInput {
+  tenantId: string;
+  conversationId: string;
+  limit?: number;
+}
+
 export interface FindMessageByGhlMessageIdInput {
+  ghlMessageId: string;
+}
+
+export interface FindMessageByGhlMessageIdForTenantInput {
+  tenantId: string;
   ghlMessageId: string;
 }
 
@@ -143,6 +155,24 @@ export async function fetchRecentMessages(
   return result.data;
 }
 
+export async function fetchRecentMessagesForTenant(
+  input: FetchRecentMessagesForTenantInput
+): Promise<Message[]> {
+  const conversation = await getConversationByIdForTenant({
+    tenantId: input.tenantId,
+    conversationId: input.conversationId,
+  });
+
+  if (conversation == null) {
+    return [];
+  }
+
+  return fetchRecentMessages({
+    conversationId: conversation.id,
+    limit: input.limit,
+  });
+}
+
 export async function findMessageByGhlMessageId(
   input: FindMessageByGhlMessageIdInput
 ): Promise<Message | null> {
@@ -166,6 +196,25 @@ export async function findMessageByGhlMessageId(
   return result.data;
 }
 
+export async function findMessageByGhlMessageIdForTenant(
+  input: FindMessageByGhlMessageIdForTenantInput
+): Promise<Message | null> {
+  const message = await findMessageByGhlMessageId({
+    ghlMessageId: input.ghlMessageId,
+  });
+
+  if (message == null) {
+    return null;
+  }
+
+  const conversation = await getConversationByIdForTenant({
+    tenantId: input.tenantId,
+    conversationId: message.conversation_id,
+  });
+
+  return conversation == null ? null : message;
+}
+
 export async function listConversationMessages(
   conversationId: string
 ): Promise<Message[]> {
@@ -187,6 +236,22 @@ export async function listConversationMessages(
   }
 
   return result.data;
+}
+
+export async function listConversationMessagesForTenant(input: {
+  tenantId: string;
+  conversationId: string;
+}): Promise<Message[]> {
+  const conversation = await getConversationByIdForTenant({
+    tenantId: input.tenantId,
+    conversationId: input.conversationId,
+  });
+
+  if (conversation == null) {
+    return [];
+  }
+
+  return listConversationMessages(conversation.id);
 }
 
 export async function getMessageById(messageId: string): Promise<Message | null> {

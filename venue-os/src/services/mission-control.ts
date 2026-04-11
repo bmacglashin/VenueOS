@@ -1,29 +1,19 @@
-import "server-only";
-
 import type { Database, Json } from "@/src/lib/db/supabase";
-import {
-  listAuditLogs,
-  type ListAuditLogsInput,
-} from "@/src/services/audit-logs";
+import type { ListAuditLogsInput } from "@/src/services/audit-logs";
+import { OUTBOUND_MODES, type OutboundMode } from "@/src/lib/config/outbound";
+import type {
+  ConversationTurnRequest,
+  OrchestrateConversationTurnResult,
+} from "@/src/services/conversation-orchestrator";
 import { getLatestDraftVersionMessage } from "@/src/services/draft-history";
 import type {
   OutboundAction,
   ResolvedOutboundMode,
 } from "@/src/services/outbound-control";
-import { determineOutboundDelivery } from "@/src/services/outbound-control";
 import {
-  type OrchestrateConversationTurnResult,
-} from "@/src/services/conversation-orchestrator";
-import {
-  findOrCreateTenant,
-  getConversationById,
-  getConversationWithMessages,
-  getTenantById,
-  listConversations,
-  listTenants,
-} from "@/src/services/conversations";
-import { fetchRecentMessages } from "@/src/services/messages";
-import { resolveOutboundModeForTenant } from "@/src/services/outbound-settings";
+  determineOutboundDelivery,
+  resolveOutboundMode,
+} from "@/src/services/outbound-control";
 import {
   RESPONSE_POLICY_DECISIONS,
   type ResponsePolicyDecision,
@@ -98,6 +88,172 @@ export interface RunMissionControlSandboxTurnInput {
   tenantId?: string;
   conversationId?: string;
   message: string;
+}
+
+export interface GetMissionControlConversationDetailInput {
+  conversationId: string;
+  tenantId?: string;
+}
+
+export interface MissionControlDependencies {
+  findOrCreateTenant: (input: {
+    slug: string;
+    name: string;
+    ghlLocationId?: string | null;
+  }) => Promise<Tenant>;
+  getConversationById: (conversationId: string) => Promise<Conversation | null>;
+  getConversationByIdForTenant: (input: {
+    tenantId: string;
+    conversationId: string;
+  }) => Promise<Conversation | null>;
+  getConversationWithMessages: (
+    conversationId: string
+  ) => Promise<{
+    conversation: Conversation;
+    messages: Message[];
+  } | null>;
+  getConversationWithMessagesForTenant: (input: {
+    tenantId: string;
+    conversationId: string;
+  }) => Promise<{
+    conversation: Conversation;
+    messages: Message[];
+  } | null>;
+  getTenantById: (tenantId: string) => Promise<Tenant | null>;
+  listAuditLogs: (input: ListAuditLogsInput) => Promise<AuditLog[]>;
+  listConversations: (input: {
+    tenantId: string;
+    limit?: number;
+  }) => Promise<Conversation[]>;
+  listTenants: (input: { limit?: number }) => Promise<Tenant[]>;
+  fetchRecentMessagesForTenant: (input: {
+    tenantId: string;
+    conversationId: string;
+    limit?: number;
+  }) => Promise<Message[]>;
+  resolveOutboundModeForTenant: (tenant: Tenant | null) => ResolvedOutboundMode;
+  orchestrateConversationTurn: (
+    input: ConversationTurnRequest
+  ) => Promise<OrchestrateConversationTurnResult>;
+}
+
+function normalizeOutboundMode(value: string | null | undefined): OutboundMode | null {
+  if (value == null) {
+    return null;
+  }
+
+  return OUTBOUND_MODES.find((mode) => mode === value) ?? null;
+}
+
+function getDefaultGlobalOutboundMode(): OutboundMode {
+  return normalizeOutboundMode(process.env.OUTBOUND_MODE) ?? "review_only";
+}
+
+async function defaultFindOrCreateTenant(input: {
+  slug: string;
+  name: string;
+  ghlLocationId?: string | null;
+}): Promise<Tenant> {
+  const { findOrCreateTenant } = await import("@/src/services/conversations");
+  return findOrCreateTenant(input);
+}
+
+async function defaultGetConversationById(
+  conversationId: string
+): Promise<Conversation | null> {
+  const { getConversationById } = await import("@/src/services/conversations");
+  return getConversationById(conversationId);
+}
+
+async function defaultGetConversationByIdForTenant(input: {
+  tenantId: string;
+  conversationId: string;
+}): Promise<Conversation | null> {
+  const { getConversationByIdForTenant } = await import(
+    "@/src/services/conversations"
+  );
+  return getConversationByIdForTenant(input);
+}
+
+async function defaultGetConversationWithMessages(
+  conversationId: string
+): Promise<{
+  conversation: Conversation;
+  messages: Message[];
+} | null> {
+  const { getConversationWithMessages } = await import(
+    "@/src/services/conversations"
+  );
+  return getConversationWithMessages(conversationId);
+}
+
+async function defaultGetConversationWithMessagesForTenant(input: {
+  tenantId: string;
+  conversationId: string;
+}): Promise<{
+  conversation: Conversation;
+  messages: Message[];
+} | null> {
+  const { getConversationWithMessagesForTenant } = await import(
+    "@/src/services/conversations"
+  );
+  return getConversationWithMessagesForTenant(input);
+}
+
+async function defaultGetTenantById(tenantId: string): Promise<Tenant | null> {
+  const { getTenantById } = await import("@/src/services/conversations");
+  return getTenantById(tenantId);
+}
+
+async function defaultListAuditLogs(
+  input: ListAuditLogsInput
+): Promise<AuditLog[]> {
+  const { listAuditLogs } = await import("@/src/services/audit-logs");
+  return listAuditLogs(input);
+}
+
+async function defaultListConversations(input: {
+  tenantId: string;
+  limit?: number;
+}): Promise<Conversation[]> {
+  const { listConversations } = await import("@/src/services/conversations");
+  return listConversations(input);
+}
+
+async function defaultListTenants(input: {
+  limit?: number;
+}): Promise<Tenant[]> {
+  const { listTenants } = await import("@/src/services/conversations");
+  return listTenants(input);
+}
+
+async function defaultFetchRecentMessagesForTenant(input: {
+  tenantId: string;
+  conversationId: string;
+  limit?: number;
+}): Promise<Message[]> {
+  const { fetchRecentMessagesForTenant } = await import(
+    "@/src/services/messages"
+  );
+  return fetchRecentMessagesForTenant(input);
+}
+
+function defaultResolveOutboundModeForTenant(
+  tenant: Tenant | null
+): ResolvedOutboundMode {
+  return resolveOutboundMode({
+    globalMode: getDefaultGlobalOutboundMode(),
+    tenantOverride: normalizeOutboundMode(tenant?.outbound_mode_override),
+  });
+}
+
+async function defaultOrchestrateConversationTurn(
+  input: ConversationTurnRequest
+): Promise<OrchestrateConversationTurnResult> {
+  const { orchestrateConversationTurn } = await import(
+    "@/src/services/conversation-orchestrator"
+  );
+  return orchestrateConversationTurn(input);
 }
 
 function byCreatedAtAscending(
@@ -294,34 +450,6 @@ function buildConversationSummary(
   };
 }
 
-async function listConversationSummariesForTenant(
-  tenant: Tenant,
-  limit = CONVERSATION_LIST_LIMIT
-): Promise<MissionControlConversationSummary[]> {
-  const resolvedOutboundMode = resolveOutboundModeForTenant(tenant);
-  const conversations = await listConversations({
-    tenantId: tenant.id,
-    limit,
-  });
-
-  const summaries = await Promise.all(
-    conversations.map(async (conversation) =>
-      buildConversationSummary(
-        conversation,
-        await fetchRecentMessages({
-          conversationId: conversation.id,
-          limit: RECENT_MESSAGE_LIMIT,
-        }),
-        resolvedOutboundMode
-      )
-    )
-  );
-
-  return summaries.sort((left, right) =>
-    right.lastActivityAt.localeCompare(left.lastActivityAt)
-  );
-}
-
 function buildSummaryStats(
   conversations: readonly MissionControlConversationSummary[]
 ): MissionControlSummaryStats {
@@ -351,227 +479,310 @@ function resolveSelectedTenant(
   return tenants[0] ?? null;
 }
 
-async function listConversationAuditLogs(
-  input: ListAuditLogsInput
-): Promise<AuditLog[]> {
-  try {
-    return await listAuditLogs(input);
-  } catch (error) {
-    console.error("Mission Control could not filter audit logs by conversation.", {
-      tenantId: input.tenantId,
-      conversationId: input.conversationId,
-      error,
-    });
-
-    return listAuditLogs({
-      tenantId: input.tenantId,
-      limit: input.limit,
-    });
-  }
-}
-
-export async function getMissionControlOverview(
-  input: { tenantId?: string } = {}
-): Promise<MissionControlOverviewData> {
-  const tenants = await listTenants({
-    limit: CONVERSATION_LIST_LIMIT,
-  });
-  const selectedTenant = resolveSelectedTenant(tenants, input.tenantId);
-  const resolvedOutboundMode = resolveOutboundModeForTenant(selectedTenant);
-  const conversations =
-    selectedTenant == null
-      ? []
-      : await listConversationSummariesForTenant(selectedTenant);
-
-  return {
-    tenants,
-    selectedTenant,
-    resolvedOutboundMode,
-    conversations,
-    stats: buildSummaryStats(conversations),
+export function createMissionControlService(
+  overrides: Partial<MissionControlDependencies> = {}
+) {
+  const deps: MissionControlDependencies = {
+    findOrCreateTenant: defaultFindOrCreateTenant,
+    getConversationById: defaultGetConversationById,
+    getConversationByIdForTenant: defaultGetConversationByIdForTenant,
+    getConversationWithMessages: defaultGetConversationWithMessages,
+    getConversationWithMessagesForTenant:
+      defaultGetConversationWithMessagesForTenant,
+    getTenantById: defaultGetTenantById,
+    listAuditLogs: defaultListAuditLogs,
+    listConversations: defaultListConversations,
+    listTenants: defaultListTenants,
+    fetchRecentMessagesForTenant: defaultFetchRecentMessagesForTenant,
+    resolveOutboundModeForTenant: defaultResolveOutboundModeForTenant,
+    orchestrateConversationTurn: defaultOrchestrateConversationTurn,
+    ...overrides,
   };
-}
 
-export async function getMissionControlConversationDetail(
-  conversationId: string
-): Promise<MissionControlConversationDetail | null> {
-  const detail = await getConversationWithMessages(conversationId);
+  async function listConversationSummariesForTenant(
+    tenant: Tenant,
+    limit = CONVERSATION_LIST_LIMIT
+  ): Promise<MissionControlConversationSummary[]> {
+    const resolvedMode = deps.resolveOutboundModeForTenant(tenant);
+    const conversations = await deps.listConversations({
+      tenantId: tenant.id,
+      limit,
+    });
 
-  if (detail == null) {
-    return null;
-  }
+    const summaries = await Promise.all(
+      conversations.map(async (conversation) =>
+        buildConversationSummary(
+          conversation,
+          await deps.fetchRecentMessagesForTenant({
+            tenantId: tenant.id,
+            conversationId: conversation.id,
+            limit: RECENT_MESSAGE_LIMIT,
+          }),
+          resolvedMode
+        )
+      )
+    );
 
-  const tenant = await getTenantById(detail.conversation.tenant_id);
-
-  if (tenant == null) {
-    throw new Error(
-      `Conversation ${conversationId} is attached to a missing tenant ${detail.conversation.tenant_id}.`
+    return summaries.sort((left, right) =>
+      right.lastActivityAt.localeCompare(left.lastActivityAt)
     );
   }
 
-  const [conversations, auditLogs] = await Promise.all([
-    listConversationSummariesForTenant(tenant),
-    listConversationAuditLogs({
-      tenantId: tenant.id,
-      conversationId,
-      limit: AUDIT_LOG_LIMIT,
-    }),
-  ]);
-  const resolvedOutboundMode = resolveOutboundModeForTenant(tenant);
-
-  const latestInboundMessage = getLatestInboundMessage(detail.messages);
-  const latestAiDraftMessage = getLatestAiDraftMessage(detail.messages);
-
-  return {
-    tenant,
-    resolvedOutboundMode,
-    conversations,
-    stats: buildSummaryStats(conversations),
-    conversation: detail.conversation,
-    messages: detail.messages,
-    latestInboundMessage,
-    latestAiDraftMessage,
-    draftRouteCategory: getDraftRouteCategory(latestAiDraftMessage),
-    draftPolicyDecision: getDraftPolicyDecision(latestAiDraftMessage),
-    draftOutboundAction: getDraftOutboundAction(
-      latestAiDraftMessage,
-      resolvedOutboundMode
-    ),
-    draftPolicyReasonCodes: getDraftPolicyReasonCodes(latestAiDraftMessage),
-    draftRequiresHumanReview: getDraftRequiresHumanReview(
-      latestAiDraftMessage,
-      resolvedOutboundMode
-    ),
-    auditLogs,
-  };
-}
-
-export async function getMissionControlSandboxData(
-  input: { tenantId?: string; conversationId?: string } = {}
-): Promise<MissionControlSandboxData> {
-  const tenants = await listTenants({
-    limit: CONVERSATION_LIST_LIMIT,
-  });
-  const selectedConversation =
-    input.conversationId == null
-      ? null
-      : await getMissionControlConversationDetail(input.conversationId);
-  const selectedTenant =
-    selectedConversation?.tenant ??
-    resolveSelectedTenant(tenants, input.tenantId);
-  const selectedConversationMatchesTenant =
-    selectedConversation != null &&
-    selectedTenant != null &&
-    selectedConversation.tenant.id === selectedTenant.id;
-  const conversations =
-    selectedConversationMatchesTenant
-      ? selectedConversation.conversations
-      : selectedTenant == null
-        ? []
-        : await listConversationSummariesForTenant(selectedTenant, 15);
-  const resolvedOutboundMode =
-    selectedConversation?.resolvedOutboundMode ??
-    resolveOutboundModeForTenant(selectedTenant);
-
-  return {
-    tenants,
-    selectedTenant,
-    resolvedOutboundMode,
-    conversations,
-    selectedConversation,
-    willCreateTenantOnFirstRun: tenants.length === 0 && selectedTenant == null,
-  };
-}
-
-async function resolveSandboxTenant(
-  input: RunMissionControlSandboxTurnInput
-): Promise<Tenant> {
-  if (input.conversationId != null) {
-    const conversation = await getConversationById(input.conversationId);
-
-    if (conversation == null) {
-      throw new Error(
-        `Sandbox conversation ${input.conversationId} was not found.`
+  async function listConversationAuditLogsSafe(
+    input: ListAuditLogsInput
+  ): Promise<AuditLog[]> {
+    try {
+      return await deps.listAuditLogs(input);
+    } catch (error) {
+      console.error(
+        "Mission Control could not filter audit logs by conversation.",
+        {
+          tenantId: input.tenantId,
+          conversationId: input.conversationId,
+          error,
+        }
       );
+
+      return deps.listAuditLogs({
+        tenantId: input.tenantId,
+        limit: input.limit,
+      });
+    }
+  }
+
+  async function getMissionControlOverview(
+    input: { tenantId?: string } = {}
+  ): Promise<MissionControlOverviewData> {
+    const tenants = await deps.listTenants({
+      limit: CONVERSATION_LIST_LIMIT,
+    });
+    const selectedTenant = resolveSelectedTenant(tenants, input.tenantId);
+    const resolvedMode = deps.resolveOutboundModeForTenant(selectedTenant);
+    const conversations =
+      selectedTenant == null
+        ? []
+        : await listConversationSummariesForTenant(selectedTenant);
+
+    return {
+      tenants,
+      selectedTenant,
+      resolvedOutboundMode: resolvedMode,
+      conversations,
+      stats: buildSummaryStats(conversations),
+    };
+  }
+
+  async function getMissionControlConversationDetail(
+    input: GetMissionControlConversationDetailInput
+  ): Promise<MissionControlConversationDetail | null> {
+    const detail =
+      input.tenantId == null
+        ? await deps.getConversationWithMessages(input.conversationId)
+        : await deps.getConversationWithMessagesForTenant({
+            tenantId: input.tenantId,
+            conversationId: input.conversationId,
+          });
+
+    if (detail == null) {
+      return null;
     }
 
-    const tenant = await getTenantById(conversation.tenant_id);
+    const tenant = await deps.getTenantById(detail.conversation.tenant_id);
 
     if (tenant == null) {
       throw new Error(
-        `Sandbox conversation ${input.conversationId} belongs to a missing tenant ${conversation.tenant_id}.`
+        `Conversation ${input.conversationId} is attached to a missing tenant ${detail.conversation.tenant_id}.`
       );
     }
 
-    return tenant;
+    const [conversations, auditLogs] = await Promise.all([
+      listConversationSummariesForTenant(tenant),
+      listConversationAuditLogsSafe({
+        tenantId: tenant.id,
+        conversationId: input.conversationId,
+        limit: AUDIT_LOG_LIMIT,
+      }),
+    ]);
+    const resolvedMode = deps.resolveOutboundModeForTenant(tenant);
+    const latestInboundMessage = getLatestInboundMessage(detail.messages);
+    const latestAiDraftMessage = getLatestAiDraftMessage(detail.messages);
+
+    return {
+      tenant,
+      resolvedOutboundMode: resolvedMode,
+      conversations,
+      stats: buildSummaryStats(conversations),
+      conversation: detail.conversation,
+      messages: detail.messages,
+      latestInboundMessage,
+      latestAiDraftMessage,
+      draftRouteCategory: getDraftRouteCategory(latestAiDraftMessage),
+      draftPolicyDecision: getDraftPolicyDecision(latestAiDraftMessage),
+      draftOutboundAction: getDraftOutboundAction(
+        latestAiDraftMessage,
+        resolvedMode
+      ),
+      draftPolicyReasonCodes: getDraftPolicyReasonCodes(latestAiDraftMessage),
+      draftRequiresHumanReview: getDraftRequiresHumanReview(
+        latestAiDraftMessage,
+        resolvedMode
+      ),
+      auditLogs,
+    };
   }
 
-  if (input.tenantId != null) {
-    const tenant = await getTenantById(input.tenantId);
+  async function getMissionControlSandboxData(
+    input: { tenantId?: string; conversationId?: string } = {}
+  ): Promise<MissionControlSandboxData> {
+    const tenants = await deps.listTenants({
+      limit: CONVERSATION_LIST_LIMIT,
+    });
+    const selectedConversation =
+      input.conversationId == null
+        ? null
+        : await getMissionControlConversationDetail({
+            conversationId: input.conversationId,
+            tenantId: input.tenantId,
+          });
+    const selectedTenant =
+      selectedConversation?.tenant ??
+      resolveSelectedTenant(tenants, input.tenantId);
+    const selectedConversationMatchesTenant =
+      selectedConversation != null &&
+      selectedTenant != null &&
+      selectedConversation.tenant.id === selectedTenant.id;
+    const conversations =
+      selectedConversationMatchesTenant
+        ? selectedConversation.conversations
+        : selectedTenant == null
+          ? []
+          : await listConversationSummariesForTenant(selectedTenant, 15);
+    const resolvedMode =
+      selectedConversation?.resolvedOutboundMode ??
+      deps.resolveOutboundModeForTenant(selectedTenant);
 
-    if (tenant != null) {
+    return {
+      tenants,
+      selectedTenant,
+      resolvedOutboundMode: resolvedMode,
+      conversations,
+      selectedConversation,
+      willCreateTenantOnFirstRun: tenants.length === 0 && selectedTenant == null,
+    };
+  }
+
+  async function resolveSandboxTenant(
+    input: RunMissionControlSandboxTurnInput
+  ): Promise<Tenant> {
+    if (input.conversationId != null) {
+      const conversation =
+        input.tenantId == null
+          ? await deps.getConversationById(input.conversationId)
+          : await deps.getConversationByIdForTenant({
+              tenantId: input.tenantId,
+              conversationId: input.conversationId,
+            });
+
+      if (conversation == null) {
+        throw new Error(
+          `Sandbox conversation ${input.conversationId} was not found for the active tenant scope.`
+        );
+      }
+
+      const tenant = await deps.getTenantById(conversation.tenant_id);
+
+      if (tenant == null) {
+        throw new Error(
+          `Sandbox conversation ${input.conversationId} belongs to a missing tenant ${conversation.tenant_id}.`
+        );
+      }
+
       return tenant;
     }
+
+    if (input.tenantId != null) {
+      const tenant = await deps.getTenantById(input.tenantId);
+
+      if (tenant != null) {
+        return tenant;
+      }
+    }
+
+    const [firstTenant] = await deps.listTenants({
+      limit: 1,
+    });
+
+    if (firstTenant != null) {
+      return firstTenant;
+    }
+
+    return deps.findOrCreateTenant({
+      slug: SANDBOX_TENANT_SLUG,
+      name: SANDBOX_TENANT_NAME,
+    });
   }
 
-  const [firstTenant] = await listTenants({
-    limit: 1,
-  });
+  async function runMissionControlSandboxTurn(
+    input: RunMissionControlSandboxTurnInput
+  ): Promise<OrchestrateConversationTurnResult> {
+    const message = input.message.trim();
 
-  if (firstTenant != null) {
-    return firstTenant;
-  }
+    if (message.length === 0) {
+      throw new Error("Sandbox message is required.");
+    }
 
-  return findOrCreateTenant({
-    slug: SANDBOX_TENANT_SLUG,
-    name: SANDBOX_TENANT_NAME,
-  });
-}
+    const tenant = await resolveSandboxTenant(input);
 
-export async function runMissionControlSandboxTurn(
-  input: RunMissionControlSandboxTurnInput
-): Promise<OrchestrateConversationTurnResult> {
-  const message = input.message.trim();
-
-  if (message.length === 0) {
-    throw new Error("Sandbox message is required.");
-  }
-
-  const tenant = await resolveSandboxTenant(input);
-  const { orchestrateConversationTurn } = await import(
-    "@/src/services/conversation-orchestrator"
-  );
-
-  return orchestrateConversationTurn({
-    tenantId: tenant.id,
-    venue: {
-      id: tenant.id,
-      venueName: tenant.name,
-    },
-    conversation:
-      input.conversationId != null
-        ? {
-            id: input.conversationId,
-          }
-        : {},
-    inbound: {
-      content: message,
-      source: SANDBOX_SOURCE,
-      role: "user",
-      receivedAt: new Date().toISOString(),
-      rawPayload: {
-        sandbox: {
-          internal: true,
-          tenantId: tenant.id,
-          conversationId: input.conversationId ?? null,
+    return deps.orchestrateConversationTurn({
+      tenantId: tenant.id,
+      venue: {
+        id: tenant.id,
+        slug: tenant.slug,
+        venueName: tenant.name,
+      },
+      conversation:
+        input.conversationId != null
+          ? {
+              id: input.conversationId,
+            }
+          : {},
+      inbound: {
+        content: message,
+        source: SANDBOX_SOURCE,
+        role: "user",
+        receivedAt: new Date().toISOString(),
+        rawPayload: {
+          sandbox: {
+            internal: true,
+            tenantId: tenant.id,
+            conversationId: input.conversationId ?? null,
+          },
+        },
+        metadata: {
+          sandbox: {
+            internal: true,
+            tool: "mission_control",
+          },
         },
       },
-      metadata: {
-        sandbox: {
-          internal: true,
-          tool: "mission_control",
-        },
-      },
-    },
-  });
+    });
+  }
+
+  return {
+    getMissionControlOverview,
+    getMissionControlConversationDetail,
+    getMissionControlSandboxData,
+    runMissionControlSandboxTurn,
+  };
 }
+
+const missionControlService = createMissionControlService();
+
+export const getMissionControlOverview =
+  missionControlService.getMissionControlOverview;
+export const getMissionControlConversationDetail =
+  missionControlService.getMissionControlConversationDetail;
+export const getMissionControlSandboxData =
+  missionControlService.getMissionControlSandboxData;
+export const runMissionControlSandboxTurn =
+  missionControlService.runMissionControlSandboxTurn;

@@ -34,6 +34,7 @@ export type {
 
 export interface RouteInboundVenueContext {
   id?: string;
+  slug?: string;
   venueName: string;
 }
 
@@ -257,7 +258,10 @@ export async function routeInboundMessage(
   const venueName = requireNonEmpty(input.venue.venueName, "Venue name");
   const message = requireNonEmpty(input.message, "Inbound message");
   const recentMessages = input.conversation.recentMessages ?? [];
-  const knowledge = await getVenueKnowledge();
+  const knowledge = await getVenueKnowledge({
+    tenantId: input.venue.id,
+    tenantSlug: input.venue.slug,
+  });
 
   const classificationResult = await runVenueStructuredOutput({
     system: buildRoutingSystemPrompt(venueName),

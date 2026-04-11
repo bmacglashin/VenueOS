@@ -16,7 +16,7 @@ import { insertAuditLog } from "@/src/services/audit-logs";
 import {
   findOrCreateConversation,
   getConversationById,
-  getConversationWithMessages,
+  getConversationWithMessagesForTenant,
   getTenantById,
 } from "@/src/services/conversations";
 import {
@@ -353,17 +353,14 @@ export async function regenerateConversationDraft(
   input: RegenerateConversationDraftInput
 ): Promise<RegenerateConversationDraftResult> {
   const observability = createObservabilityContext(input.observability);
-  const detail = await getConversationWithMessages(input.conversationId);
+  const detail = await getConversationWithMessagesForTenant({
+    tenantId: input.tenantId,
+    conversationId: input.conversationId,
+  });
 
   if (detail == null) {
     throw new Error(
       `Conversation ${input.conversationId} was not found for draft regeneration.`
-    );
-  }
-
-  if (detail.conversation.tenant_id !== input.tenantId) {
-    throw new Error(
-      `Conversation ${input.conversationId} does not belong to tenant ${input.tenantId}.`
     );
   }
 
@@ -407,6 +404,7 @@ export async function regenerateConversationDraft(
     message: sourceInboundMessage.content,
     venue: {
       id: tenant.id,
+      slug: tenant.slug,
       venueName: tenant.name,
     },
     conversation: {

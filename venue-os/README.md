@@ -34,6 +34,19 @@ pnpm evals:baseline
 - Reports include overall score, score by route, score by category, and failed-case explanations.
 - Detailed fixture authoring notes live in `docs/EVALS.md`.
 
+## Local seed
+
+Two local/dev tenant fixtures can be seeded with:
+
+```bash
+npm run seed:mock-tenants
+```
+
+- Seeds `veritas` and `harborview-loft`
+- Loads a tenant-specific knowledge pack for each venue
+- Creates a sample inbound website inquiry plus queued AI draft per tenant for Mission Control isolation checks
+- Validation steps live in `docs/runbooks/second-tenant-validation-checklist.md`
+
 ## Ops endpoints
 
 Two lightweight operational endpoints are available for launch-day checks and basic automation:
@@ -52,6 +65,7 @@ To learn more about Next.js, take a look at the following resources:
 - [Venue OS Master Plan](./docs/MASTER_PLAN.md) - phased delivery plan for the product build.
 - [Go-Live Verification Runbook](./docs/runbooks/go-live-verification.md) - outbound mode, kill-switch, and launch-day verification checklist.
 - [Observability Foundation](./docs/observability-foundation.md) - request/trace IDs, structured event names, and operational error taxonomy.
+- [Second-Tenant Validation Checklist](./docs/runbooks/second-tenant-validation-checklist.md) - local/dev checklist for dual-tenant seed and isolation verification.
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
