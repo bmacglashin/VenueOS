@@ -9,6 +9,8 @@ const TRACEPARENT_HEADER = "traceparent";
 export const STRUCTURED_EVENT_NAMES = [
   "inbound.received",
   "idempotency.dropped",
+  "website_inquiry.persisted",
+  "website_inquiry.sync_failed",
   "route.classified",
   "policy.evaluated",
   "response.drafted",

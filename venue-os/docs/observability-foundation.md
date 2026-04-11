@@ -15,6 +15,8 @@ Audit log rows now use a consistent dotted event vocabulary:
 
 - `inbound.received`
 - `idempotency.dropped`
+- `website_inquiry.persisted`
+- `website_inquiry.sync_failed`
 - `route.classified`
 - `policy.evaluated`
 - `response.drafted`
