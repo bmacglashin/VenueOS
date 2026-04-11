@@ -30,6 +30,10 @@ import type {
   SafeSendClassifierInput,
   SafeSendClassifierResult,
 } from "@/src/services/safe-send-classifier";
+import {
+  AI_DRAFT_SOURCE,
+  buildDraftVersionMetadata,
+} from "@/src/services/draft-history";
 
 type Conversation = Database["public"]["Tables"]["conversations"]["Row"];
 type Message = Database["public"]["Tables"]["messages"]["Row"];
@@ -37,8 +41,6 @@ type Message = Database["public"]["Tables"]["messages"]["Row"];
 const SESSION_MEMORY_LIMIT = 5;
 const TURN_PERSISTED_EVENT = "conversation_turn.persisted";
 const TURN_FAILED_EVENT = "conversation_turn.failed";
-const AI_DRAFT_SOURCE = "venue_os_ai_draft";
-
 const jsonValueSchema: z.ZodType<Json> = z.lazy(() =>
   z.union([
     z.string(),
@@ -182,38 +184,46 @@ function buildAiDraftMetadata(input: {
   outboundDecision: OutboundDeliveryDecision;
   outboundTransport: OutboundTransportDispatchResult | null;
 }): Json {
-  return {
-    kind: "ai_draft",
-    route: toJsonObject(input.classification),
-    responsePolicy: toJsonObject({
-      decision: input.policy.decision,
-      reasons: input.policy.reasons,
-      transportAllowed: input.policy.transportAllowed,
-      evaluatedAt: input.policy.evaluatedAt,
-      routeConfidenceThreshold: input.policy.routeConfidenceThreshold,
-    }),
-    safeSendClassifier: toJsonObject(input.safeSendClassification),
-    outboundMode: toJsonObject(input.resolvedOutboundMode),
-    outboundDelivery: toJsonObject({
-      action: input.outboundDecision.action,
-      reasons: input.outboundDecision.reasons,
-      transport: input.outboundTransport,
-    }),
-    sessionMemory: {
-      strategy: "last_messages",
-      limit: SESSION_MEMORY_LIMIT,
-      recentMessageCount: input.recentMessages.length,
-      recentMessageIds: input.recentMessages.map((message) => message.id),
-    },
-    router: {
-      ...toJsonObject(input.metadata),
-      persistence: toJsonObject({
-        ...input.metadata.persistence,
-        conversationId: input.conversationId,
-        inboundMessageId: input.inboundMessageId,
+  return buildDraftVersionMetadata({
+    existingMetadata: {
+      kind: "ai_draft",
+      route: toJsonObject(input.classification),
+      responsePolicy: toJsonObject({
+        decision: input.policy.decision,
+        reasons: input.policy.reasons,
+        transportAllowed: input.policy.transportAllowed,
+        evaluatedAt: input.policy.evaluatedAt,
+        routeConfidenceThreshold: input.policy.routeConfidenceThreshold,
       }),
+      safeSendClassifier: toJsonObject(input.safeSendClassification),
+      outboundMode: toJsonObject(input.resolvedOutboundMode),
+      outboundDelivery: toJsonObject({
+        action: input.outboundDecision.action,
+        reasons: input.outboundDecision.reasons,
+        transport: input.outboundTransport,
+      }),
+      sessionMemory: {
+        strategy: "last_messages",
+        limit: SESSION_MEMORY_LIMIT,
+        recentMessageCount: input.recentMessages.length,
+        recentMessageIds: input.recentMessages.map((message) => message.id),
+      },
+      router: {
+        ...toJsonObject(input.metadata),
+        persistence: toJsonObject({
+          ...input.metadata.persistence,
+          conversationId: input.conversationId,
+          inboundMessageId: input.inboundMessageId,
+        }),
+      },
     },
-  };
+    familyId: input.inboundMessageId,
+    version: 1,
+    originInboundMessageId: input.inboundMessageId,
+    kind: "ai_draft",
+    createdBy: "orchestrator",
+    createdAt: input.policy.evaluatedAt,
+  });
 }
 
 function getOutboundMessageStatus(

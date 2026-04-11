@@ -5,6 +5,7 @@ import {
   listAuditLogs,
   type ListAuditLogsInput,
 } from "@/src/services/audit-logs";
+import { getLatestDraftVersionMessage } from "@/src/services/draft-history";
 import type {
   OutboundAction,
   ResolvedOutboundMode,
@@ -33,7 +34,6 @@ type Conversation = Database["public"]["Tables"]["conversations"]["Row"];
 type Message = Database["public"]["Tables"]["messages"]["Row"];
 type AuditLog = Database["public"]["Tables"]["audit_logs"]["Row"];
 
-const AI_DRAFT_SOURCE = "venue_os_ai_draft";
 const SANDBOX_SOURCE = "mission_control_sandbox";
 const SANDBOX_TENANT_SLUG = "mission-control-sandbox";
 const SANDBOX_TENANT_NAME = "Mission Control Sandbox";
@@ -136,10 +136,6 @@ function readArray(value: Json | null | undefined): Json[] | null {
   return Array.isArray(value) ? value : null;
 }
 
-function isAiDraftMessage(message: Message): boolean {
-  return message.source === AI_DRAFT_SOURCE || message.status === "draft";
-}
-
 function getLatestInboundMessage(messages: readonly Message[]): Message | null {
   return [...messages]
     .filter((message) => message.direction === "inbound")
@@ -148,10 +144,7 @@ function getLatestInboundMessage(messages: readonly Message[]): Message | null {
 }
 
 function getLatestAiDraftMessage(messages: readonly Message[]): Message | null {
-  return [...messages]
-    .filter(isAiDraftMessage)
-    .sort(byCreatedAtAscending)
-    .at(-1) ?? null;
+  return getLatestDraftVersionMessage(messages);
 }
 
 function getDraftRouteCategory(message: Message | null): string | null {
@@ -209,6 +202,18 @@ function getDraftOutboundAction(
   message: Message | null,
   resolvedOutboundMode: ResolvedOutboundMode
 ): OutboundAction | null {
+  const metadata = readJsonObject(message?.metadata);
+  const outboundDelivery = readJsonObject(metadata?.outboundDelivery);
+  const storedAction = readString(outboundDelivery?.action);
+
+  if (
+    storedAction === "proceed" ||
+    storedAction === "queue" ||
+    storedAction === "block"
+  ) {
+    return storedAction;
+  }
+
   const policyDecision = getDraftPolicyDecision(message);
 
   if (!isResponsePolicyDecision(policyDecision)) {
