@@ -36,6 +36,12 @@ function makeWebsiteInquiry(
     source: "website_form",
     status: "received",
     raw_payload: {},
+    summary_status: "failed",
+    summary_short: null,
+    summary_key_facts: [],
+    summary_confidence: null,
+    summary_metadata: {},
+    summary_generated_at: null,
     created_at: "2026-04-11T18:01:00.000Z",
     updated_at: "2026-04-11T18:01:00.000Z",
     ...overrides,
@@ -100,6 +106,11 @@ describe("createWebsiteInquiryPostHandler", () => {
             requestId: "req-created-website-123",
             traceId: "trace-created-website-456",
           },
+          summary: {
+            status: "failed",
+            detail: "Summary model timed out",
+            errorType: "timeout_error",
+          },
           downstream: {
             status: "failed",
             detail: "GHL is unavailable",
@@ -132,6 +143,11 @@ describe("createWebsiteInquiryPostHandler", () => {
       inquiry: {
         tenantSlug: string;
         status: string;
+        summaryStatus: string;
+      };
+      summary: {
+        status: string;
+        errorType: string | null;
       };
       downstream: {
         status: string;
@@ -143,6 +159,9 @@ describe("createWebsiteInquiryPostHandler", () => {
     assert.equal(body.success, true);
     assert.equal(body.inquiry.tenantSlug, "veritas");
     assert.equal(body.inquiry.status, "received");
+    assert.equal(body.inquiry.summaryStatus, "failed");
+    assert.equal(body.summary.status, "failed");
+    assert.equal(body.summary.errorType, "timeout_error");
     assert.equal(body.downstream.status, "failed");
     assert.equal(body.downstream.errorType, "external_api_error");
   });

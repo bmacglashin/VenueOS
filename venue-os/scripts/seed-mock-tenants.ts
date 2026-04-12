@@ -2,6 +2,7 @@ import nextEnv from "@next/env";
 
 import { readFile } from "node:fs/promises";
 
+import type { Json } from "../src/lib/db/supabase";
 import { listMockTenantSeedSpecs } from "../src/data/mock-tenants";
 import { AI_DRAFT_SOURCE } from "../src/services/draft-history";
 
@@ -26,6 +27,10 @@ function readSeedKey(value: unknown): string | null {
 
   const trimmed = seed.key.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function toJsonValue(value: unknown): Json {
+  return JSON.parse(JSON.stringify(value ?? null)) as Json;
 }
 
 async function main(): Promise<void> {
@@ -81,20 +86,20 @@ async function main(): Promise<void> {
         source: "website_inquiry_seed",
         status: "recorded",
         ghlMessageId: spec.sampleConversation.inboundMessageId,
-        rawPayload: {
+        rawPayload: toJsonValue({
           seed: {
             key: spec.sampleConversation.seedKey,
             tenantSlug: spec.slug,
             tenantName: spec.name,
           },
           channel: "website",
-        },
-        metadata: {
+        }),
+        metadata: toJsonValue({
           seed: {
             key: spec.sampleConversation.seedKey,
           },
           channel: "website",
-        },
+        }),
       }));
 
     const existingMessages = await listConversationMessages(conversation.id);
@@ -111,7 +116,7 @@ async function main(): Promise<void> {
         content: spec.sampleConversation.draftContent,
         source: AI_DRAFT_SOURCE,
         status: "queued_for_review",
-        metadata: {
+        metadata: toJsonValue({
           kind: "ai_draft",
           seed: {
             key: spec.sampleConversation.seedKey,
@@ -151,7 +156,7 @@ async function main(): Promise<void> {
               replySource: "venue_model",
             },
           },
-        },
+        }),
         policyDecision: spec.sampleConversation.policyDecision,
         policyReasons: spec.sampleConversation.policyReasons,
         policyEvaluatedAt: spec.sampleConversation.occurredAt,

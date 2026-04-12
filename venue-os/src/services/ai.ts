@@ -49,6 +49,7 @@ export interface RunVenueModelInput {
 
 export const VENUE_STRUCTURED_OUTPUT_PURPOSES = [
   "inbound_message_routing",
+  "website_inquiry_summary",
 ] as const;
 
 export type VenueStructuredOutputPurpose =

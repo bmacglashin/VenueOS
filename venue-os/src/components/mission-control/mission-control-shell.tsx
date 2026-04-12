@@ -62,6 +62,12 @@ export function MissionControlShell({
               >
                 Sandbox
               </Link>
+              <Link
+                href="/mission-control/website-inquiries"
+                className="rounded-md border border-zinc-800 px-3 py-2 text-zinc-200 transition hover:border-zinc-700 hover:bg-zinc-900"
+              >
+                Website inquiries
+              </Link>
             </nav>
             <p className="text-xs text-zinc-500">
               {selectedTenantName != null
