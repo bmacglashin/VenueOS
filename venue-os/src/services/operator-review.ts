@@ -291,6 +291,9 @@ function getTransportedMessageStatus(
   transport: OutboundTransportDispatchResult
 ): string {
   switch (transport.outcome) {
+    case "blocked":
+      return "blocked";
+    case "dry_run":
     case "skipped":
       return "send_skipped";
     default:

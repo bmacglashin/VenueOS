@@ -12,9 +12,6 @@ const envSchema = z
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
     SUPABASE_ANON_KEY: z.string().min(1),
     NEXT_PUBLIC_APP_URL: z.string().url(),
-    GHL_API_KEY: z.string().min(1),
-    GHL_LOCATION_ID: z.string().min(1),
-    GHL_BASE_URL: z.string().url(),
     OUTBOUND_MODE: z.enum(OUTBOUND_MODES).default("review_only"),
   })
   .strict();
@@ -26,9 +23,6 @@ export const env = envSchema.parse({
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
-  GHL_API_KEY: process.env.GHL_API_KEY,
-  GHL_LOCATION_ID: process.env.GHL_LOCATION_ID,
-  GHL_BASE_URL: process.env.GHL_BASE_URL,
   OUTBOUND_MODE: process.env.OUTBOUND_MODE,
 });
 

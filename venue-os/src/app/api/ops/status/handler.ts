@@ -33,6 +33,7 @@ export interface OpsStatusRouteDependencies {
         ok: boolean;
         detail: string;
         missingRequired: string[];
+        invalidRequired: string[];
         missingOptional: string[];
       };
       database: {
