@@ -1,5 +1,7 @@
 import { fileURLToPath } from "node:url";
 
+import type { ResponsePolicyReason } from "@/src/services/response-policy";
+
 export interface MockTenantKnowledgePack {
   slug: string;
   sourceName: string;
@@ -27,10 +29,7 @@ export interface MockTenantSeedSpec {
       | "unknown_needs_review";
     routeConfidence: number;
     policyDecision: "safe_to_send" | "needs_review" | "block_send";
-    policyReasons: Array<{
-      code: string;
-      detail: string;
-    }>;
+    policyReasons: ResponsePolicyReason[];
     occurredAt: string;
   };
 }

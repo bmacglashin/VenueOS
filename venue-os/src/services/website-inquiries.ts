@@ -12,6 +12,10 @@ import {
   type StructuredEventName,
 } from "@/src/lib/observability";
 import type { InsertAuditLogInput } from "@/src/services/audit-logs";
+import type {
+  GenerateAndStoreWebsiteInquirySummaryResult,
+  WebsiteInquirySummaryStatus,
+} from "@/src/services/website-inquiry-summaries";
 
 type Tenant = Database["public"]["Tables"]["venue_tenants"]["Row"];
 type WebsiteInquiry = Database["public"]["Tables"]["website_inquiries"]["Row"];
@@ -114,11 +118,12 @@ export interface InsertWebsiteInquiryInput {
   message: string;
   source: string;
   status?: string;
+  summaryStatus?: WebsiteInquirySummaryStatus;
   rawPayload?: Json;
 }
 
 export interface ListWebsiteInquiriesInput {
-  tenantId: string;
+  tenantId?: string;
   limit?: number;
 }
 
@@ -147,6 +152,11 @@ export interface IntakeWebsiteInquiryResult {
   inquiry: WebsiteInquiry;
   tenant: Tenant;
   observability: ObservabilityContext;
+  summary: {
+    status: WebsiteInquirySummaryStatus;
+    detail: string;
+    errorType: InsertAuditLogInput["errorType"] | null;
+  };
   downstream: {
     status: "skipped" | "succeeded" | "failed";
     detail: string;
@@ -161,6 +171,11 @@ export interface WebsiteInquiryDependencies {
     input: InsertWebsiteInquiryInput
   ) => Promise<WebsiteInquiry>;
   insertAuditLog: (input: InsertAuditLogInput) => Promise<unknown>;
+  generateAndStoreWebsiteInquirySummary: (input: {
+    inquiry: WebsiteInquiry;
+    tenant: Tenant;
+    observability: ObservabilityContext;
+  }) => Promise<GenerateAndStoreWebsiteInquirySummaryResult>;
   syncWebsiteInquiry: (
     input: SyncWebsiteInquiryInput
   ) => Promise<SyncWebsiteInquiryResult>;
@@ -202,6 +217,17 @@ async function defaultInsertAuditLog(
 ): Promise<unknown> {
   const { insertAuditLog } = await import("@/src/services/audit-logs");
   return insertAuditLog(input);
+}
+
+async function defaultGenerateAndStoreWebsiteInquirySummary(input: {
+  inquiry: WebsiteInquiry;
+  tenant: Tenant;
+  observability: ObservabilityContext;
+}): Promise<GenerateAndStoreWebsiteInquirySummaryResult> {
+  const { generateAndStoreWebsiteInquirySummary } = await import(
+    "@/src/services/website-inquiry-summaries"
+  );
+  return generateAndStoreWebsiteInquirySummary(input);
 }
 
 async function defaultSyncWebsiteInquiry(): Promise<SyncWebsiteInquiryResult> {
@@ -300,6 +326,7 @@ export async function insertWebsiteInquiry(
       message: input.message,
       source: input.source,
       status: input.status ?? "received",
+      summary_status: input.summaryStatus ?? "pending",
       raw_payload: input.rawPayload ?? {},
     })
     .select("*")
@@ -312,13 +339,17 @@ export async function listWebsiteInquiries(
   input: ListWebsiteInquiriesInput
 ): Promise<WebsiteInquiry[]> {
   const supabase = await getSupabaseAdminClient();
-
-  const result = await supabase
+  let query = supabase
     .from("website_inquiries")
     .select("*")
-    .eq("tenant_id", input.tenantId)
     .order("created_at", { ascending: false })
     .limit(input.limit ?? 50);
+
+  if (input.tenantId != null) {
+    query = query.eq("tenant_id", input.tenantId);
+  }
+
+  const result = await query;
 
   if (result.error != null) {
     throw new DatabaseError(
@@ -367,6 +398,8 @@ export function createWebsiteInquiryService(
     getTenantBySlug: defaultGetTenantBySlug,
     insertWebsiteInquiry,
     insertAuditLog: defaultInsertAuditLog,
+    generateAndStoreWebsiteInquirySummary:
+      defaultGenerateAndStoreWebsiteInquirySummary,
     syncWebsiteInquiry: defaultSyncWebsiteInquiry,
     ...overrides,
   };
@@ -389,6 +422,7 @@ export function createWebsiteInquiryService(
       message: normalized.message,
       source: normalized.source,
       status: "received",
+      summaryStatus: "pending",
       rawPayload,
     });
 
@@ -408,17 +442,41 @@ export function createWebsiteInquiryService(
       }),
     });
 
+    let summarizedInquiry = inquiry;
+    let summaryResult: GenerateAndStoreWebsiteInquirySummaryResult["summary"] = {
+      status: "failed",
+      detail: "AI inquiry summary did not run.",
+      errorType: "unknown_error",
+    };
+
+    try {
+      const generatedSummary = await deps.generateAndStoreWebsiteInquirySummary({
+        inquiry,
+        tenant,
+        observability,
+      });
+      summarizedInquiry = generatedSummary.inquiry;
+      summaryResult = generatedSummary.summary;
+    } catch (error) {
+      summaryResult = {
+        status: "failed",
+        detail: getOperationalErrorMessage(error),
+        errorType: classifyOperationalError(error),
+      };
+    }
+
     try {
       const syncResult = await deps.syncWebsiteInquiry({
-        inquiry,
+        inquiry: summarizedInquiry,
         tenant,
         observability,
       });
 
       return {
-        inquiry,
+        inquiry: summarizedInquiry,
         tenant,
         observability,
+        summary: summaryResult,
         downstream: {
           status: syncResult.status,
           detail: syncResult.detail,
@@ -446,9 +504,10 @@ export function createWebsiteInquiryService(
       });
 
       return {
-        inquiry,
+        inquiry: summarizedInquiry,
         tenant,
         observability,
+        summary: summaryResult,
         downstream: {
           status: "failed",
           detail,

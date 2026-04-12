@@ -737,7 +737,6 @@ export function createMissionControlService(
       tenantId: tenant.id,
       venue: {
         id: tenant.id,
-        slug: tenant.slug,
         venueName: tenant.name,
       },
       conversation:

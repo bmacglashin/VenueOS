@@ -181,6 +181,12 @@ export type Database = {
           source: string;
           status: string;
           raw_payload: Json;
+          summary_status: string;
+          summary_short: string | null;
+          summary_key_facts: Json;
+          summary_confidence: number | null;
+          summary_metadata: Json;
+          summary_generated_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -196,6 +202,12 @@ export type Database = {
           source: string;
           status?: string;
           raw_payload?: Json;
+          summary_status?: string;
+          summary_short?: string | null;
+          summary_key_facts?: Json;
+          summary_confidence?: number | null;
+          summary_metadata?: Json;
+          summary_generated_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -211,6 +223,12 @@ export type Database = {
           source?: string;
           status?: string;
           raw_payload?: Json;
+          summary_status?: string;
+          summary_short?: string | null;
+          summary_key_facts?: Json;
+          summary_confidence?: number | null;
+          summary_metadata?: Json;
+          summary_generated_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

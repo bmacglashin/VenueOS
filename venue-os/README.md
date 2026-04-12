@@ -58,7 +58,7 @@ Two lightweight operational endpoints are available for launch-day checks and ba
 
 ## Website inquiries
 
-`POST /api/website-inquiries` validates website-form payloads, persists them to Postgres first, and can optionally attempt a downstream sync without blocking success.
+`POST /api/website-inquiries` validates website-form payloads, persists them to Postgres first, marks summary status, optionally generates a non-blocking AI summary, and can still attempt a downstream sync without blocking success.
 
 Example request payload:
 
@@ -77,7 +77,9 @@ Example request payload:
 
 - Provide either `tenantId` or `tenantSlug`.
 - `eventDate` accepts `YYYY-MM-DD` or ISO 8601 input and is normalized before persistence.
+- Summary output is stored separately from `raw_payload` with `summaryStatus`, short summary text, extracted key facts, and a confidence score.
 - Successful responses still return `201` if an optional downstream sync fails; inspect the `downstream` object for that status.
+- Mission Control exposes the stored raw submission and AI summary at `/mission-control/website-inquiries`.
 
 ## Learn More
 
