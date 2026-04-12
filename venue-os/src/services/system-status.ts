@@ -4,6 +4,12 @@ import { createClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/src/lib/db/supabase";
 import {
+  getGhlEnvChecklistStatus,
+  parseGhlExecutionMode,
+  parseGhlWriteKillSwitch,
+} from "@/src/lib/config/ghl-env";
+import { OUTBOUND_MODES } from "@/src/lib/config/outbound";
+import {
   ConfigError,
   DatabaseError,
   type StructuredEventName,
@@ -22,6 +28,7 @@ export interface SystemHealthStatus {
   checks: {
     configuration: SystemHealthCheck & {
       missingRequired: string[];
+      invalidRequired: string[];
       missingOptional: string[];
     };
     database: SystemHealthCheck;
@@ -55,9 +62,6 @@ const REQUIRED_ENV_VARS = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "SUPABASE_ANON_KEY",
   "NEXT_PUBLIC_APP_URL",
-  "GHL_API_KEY",
-  "GHL_LOCATION_ID",
-  "GHL_BASE_URL",
   "OUTBOUND_MODE",
 ] as const;
 
@@ -78,8 +82,43 @@ function readEnvValue(name: string): string | null {
 }
 
 function listMissingEnvVars() {
+  const ghlChecklist = getGhlEnvChecklistStatus();
+  const invalidRequired: string[] = [];
+  const outboundMode = readEnvValue("OUTBOUND_MODE");
+
+  if (
+    outboundMode != null &&
+    !OUTBOUND_MODES.some((mode) => mode === outboundMode)
+  ) {
+    invalidRequired.push("OUTBOUND_MODE");
+  }
+
+  const executionMode = readEnvValue("GHL_EXECUTION_MODE");
+
+  if (
+    executionMode != null &&
+    parseGhlExecutionMode(executionMode) == null &&
+    !ghlChecklist.invalidRequired.includes("GHL_EXECUTION_MODE")
+  ) {
+    invalidRequired.push("GHL_EXECUTION_MODE");
+  }
+
+  const killSwitch = readEnvValue("GHL_WRITE_KILL_SWITCH");
+
+  if (
+    killSwitch != null &&
+    parseGhlWriteKillSwitch(killSwitch) == null &&
+    !ghlChecklist.invalidRequired.includes("GHL_WRITE_KILL_SWITCH")
+  ) {
+    invalidRequired.push("GHL_WRITE_KILL_SWITCH");
+  }
+
   return {
-    missingRequired: REQUIRED_ENV_VARS.filter((name) => readEnvValue(name) == null),
+    missingRequired: [
+      ...REQUIRED_ENV_VARS.filter((name) => readEnvValue(name) == null),
+      ...ghlChecklist.missingRequired,
+    ],
+    invalidRequired: [...invalidRequired, ...ghlChecklist.invalidRequired],
     missingOptional: OPTIONAL_ENV_VARS.filter((name) => readEnvValue(name) == null),
   };
 }
@@ -219,12 +258,25 @@ export async function getSystemHealthStatus(
   const missing = listMissingEnvVars();
   const database = await checkDatabaseReadiness();
   const configuration: SystemHealthStatus["checks"]["configuration"] = {
-    ok: missing.missingRequired.length === 0,
+    ok:
+      missing.missingRequired.length === 0 &&
+      missing.invalidRequired.length === 0,
     detail:
-      missing.missingRequired.length === 0
-        ? "All required runtime environment variables are configured."
-        : `Missing required environment variables: ${missing.missingRequired.join(", ")}`,
+      missing.missingRequired.length === 0 &&
+      missing.invalidRequired.length === 0
+        ? "All required runtime environment variables are configured and valid."
+        : [
+            missing.missingRequired.length > 0
+              ? `Missing required environment variables: ${missing.missingRequired.join(", ")}`
+              : null,
+            missing.invalidRequired.length > 0
+              ? `Invalid required environment variables: ${missing.invalidRequired.join(", ")}`
+              : null,
+          ]
+            .filter((value): value is string => value != null)
+            .join(" "),
     missingRequired: missing.missingRequired,
+    invalidRequired: missing.invalidRequired,
     missingOptional: missing.missingOptional,
   };
   const ready = configuration.ok && database.ok;

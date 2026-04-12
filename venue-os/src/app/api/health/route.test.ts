@@ -14,8 +14,9 @@ describe("createHealthGetHandler", () => {
         checks: {
           configuration: {
             ok: true,
-            detail: "All required runtime environment variables are configured.",
+            detail: "All required runtime environment variables are configured and valid.",
             missingRequired: [],
+            invalidRequired: [],
             missingOptional: [],
           },
           database: {
@@ -58,6 +59,7 @@ describe("createHealthGetHandler", () => {
             ok: false,
             detail: "Missing required environment variables: GHL_API_KEY",
             missingRequired: ["GHL_API_KEY"],
+            invalidRequired: [],
             missingOptional: ["OPS_STATUS_TOKEN"],
           },
           database: {

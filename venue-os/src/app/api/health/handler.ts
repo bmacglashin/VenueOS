@@ -16,6 +16,7 @@ export interface HealthRouteDependencies {
         ok: boolean;
         detail: string;
         missingRequired: string[];
+        invalidRequired: string[];
         missingOptional: string[];
       };
       database: {

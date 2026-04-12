@@ -23,6 +23,7 @@ describe("createOpsStatusGetHandler", () => {
             ok: true,
             detail: "configured",
             missingRequired: [],
+            invalidRequired: [],
             missingOptional: [],
           },
           database: {
@@ -72,6 +73,7 @@ describe("createOpsStatusGetHandler", () => {
             ok: true,
             detail: "configured",
             missingRequired: [],
+            invalidRequired: [],
             missingOptional: [],
           },
           database: {
