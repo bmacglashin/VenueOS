@@ -34,6 +34,19 @@ pnpm evals:baseline
 - Reports include overall score, score by route, score by category, and failed-case explanations.
 - Detailed fixture authoring notes live in `docs/EVALS.md`.
 
+## GHL replay harness
+
+This repo also includes a deterministic local GoHighLevel replay harness that drives the shared internal webhook loop with mock fixtures.
+
+```bash
+npm run ghl:replay -- --run-id local-docs-run
+```
+
+- Replays contact, opportunity, note, outbound-message, and duplicate-delivery fixtures through the shared webhook handler.
+- Forces `GHL_EXECUTION_MODE=dry_run` and `GHL_WRITE_KILL_SWITCH=true` during replay.
+- Emits structured JSON logs plus a readable pass/fail summary for each replay.
+- Detailed usage notes live in `docs/GHL_REPLAY_HARNESS.md`.
+
 ## Local seed
 
 Two local/dev tenant fixtures can be seeded with:
