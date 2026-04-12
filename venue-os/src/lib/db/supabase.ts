@@ -2,6 +2,7 @@ import { createBrowserClient, createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
+import type { OutboundMode } from "@/src/lib/config/outbound";
 import { env } from "@/src/lib/config/env";
 
 export type Json =
@@ -20,7 +21,7 @@ export type Database = {
           id: string;
           name: string;
           ghl_location_id: string | null;
-          outbound_mode_override: string | null;
+          outbound_mode_override: OutboundMode | null;
           slug: string;
           created_at: string;
           updated_at: string;
@@ -29,7 +30,7 @@ export type Database = {
           id?: string;
           name: string;
           ghl_location_id?: string | null;
-          outbound_mode_override?: string | null;
+          outbound_mode_override?: OutboundMode | null;
           slug: string;
           created_at?: string;
           updated_at?: string;
@@ -38,7 +39,7 @@ export type Database = {
           id?: string;
           name?: string;
           ghl_location_id?: string | null;
-          outbound_mode_override?: string | null;
+          outbound_mode_override?: OutboundMode | null;
           slug?: string;
           created_at?: string;
           updated_at?: string;
